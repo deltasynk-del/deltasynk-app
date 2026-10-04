@@ -1,0 +1,169 @@
+<dp-auth-shell>
+  @if (twoFactor(); as tf) {
+    <h1 class="auth-panel__title">Two-step verification</h1>
+    <p class="auth-panel__subtitle">
+      @switch (tf.method) {
+        @case ('totp') {
+          Enter the 6-digit code from your authenticator app.
+        }
+        @case ('email') {
+          We sent a code to <strong>{{ tf.maskedEmail }}</strong>.
+        }
+        @case ('sms') {
+          We sent a code to <strong>{{ tf.maskedPhone }}</strong>.
+        }
+        @case ('recovery') {
+          Enter one of your saved recovery codes. Each code works once.
+        }
+      }
+    </p>
+
+    @if (errorMessage()) {
+      <p class="auth-alert auth-alert--error" role="alert">{{ errorMessage() }}</p>
+    }
+
+    @if (tf.devCode) {
+      <p class="auth-alert auth-alert--info">
+        Development mode — code: <strong>{{ tf.devCode }}</strong>
+      </p>
+    }
+
+    <form class="auth-form" (ngSubmit)="submitTwoFactor()">
+      <div class="auth-form__field">
+        <mat-form-field appearance="outline" floatLabel="auto" subscriptSizing="dynamic">
+          <mat-label>{{ tf.method === 'recovery' ? 'Recovery code' : 'Verification code' }}</mat-label>
+          <input
+            matInput
+            name="twoFactorCode"
+            [(ngModel)]="twoFactorCode"
+            autocomplete="one-time-code"
+            [attr.inputmode]="tf.method === 'recovery' ? 'text' : 'numeric'"
+            required
+          />
+        </mat-form-field>
+      </div>
+
+      @if (tf.method === 'email' || tf.method === 'sms') {
+        <button
+          type="button"
+          class="auth-form__forgot"
+          [disabled]="tf.sending"
+          (click)="sendTwoFactorCode()"
+        >
+          {{ tf.sending ? 'Sending…' : tf.codeSent ? 'Resend code' : 'Send code' }}
+        </button>
+      }
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        class="auth-form__submit"
+        [disabled]="loading() || !twoFactorCode.trim()"
+      >
+        <span class="auth-form__submit-content">
+          <mat-icon aria-hidden="true">verified_user</mat-icon>
+          <span>{{ loading() ? 'Verifying…' : 'Verify' }}</span>
+        </span>
+      </button>
+    </form>
+
+    @if (tf.methods.length > 1 || tf.recoveryAvailable) {
+      <div class="twofa-methods">
+        <p class="twofa-methods__label">Use a different method</p>
+        <div class="twofa-methods__list">
+          @for (m of tf.methods; track m) {
+            @if (m !== tf.method) {
+              <button type="button" mat-stroked-button (click)="selectMethod(m)">
+                {{ methodLabels[m] }}
+              </button>
+            }
+          }
+          @if (tf.recoveryAvailable && tf.method !== 'recovery') {
+            <button type="button" mat-stroked-button (click)="selectMethod('recovery')">
+              {{ methodLabels['recovery'] }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <button type="button" class="auth-back-link" style="background:none;border:none;cursor:pointer;padding:0" (click)="cancelTwoFactor()">
+      Back to sign in
+    </button>
+  } @else {
+    <h1 class="auth-panel__title">Sign in</h1>
+    <p class="auth-panel__subtitle">Use your email or phone number and your password.</p>
+
+    @if (errorMessage()) {
+      <p class="auth-alert auth-alert--error" role="alert">{{ errorMessage() }}</p>
+    }
+
+    <form class="auth-form" #loginForm="ngForm" (ngSubmit)="signIn()">
+      <div class="auth-form__field">
+        <mat-form-field appearance="outline" floatLabel="auto" subscriptSizing="dynamic">
+          <mat-label>Email or phone number</mat-label>
+          <input
+            matInput
+            type="text"
+            name="identifier"
+            [(ngModel)]="identifier"
+            required
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </mat-form-field>
+      </div>
+
+      <div class="auth-form__field">
+        <mat-form-field appearance="outline" floatLabel="auto" subscriptSizing="dynamic">
+          <mat-label>Password</mat-label>
+          <input
+            matInput
+            [type]="hidePassword ? 'password' : 'text'"
+            name="password"
+            [(ngModel)]="password"
+            required
+            autocomplete="current-password"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            [attr.aria-label]="hidePassword ? 'Show password' : 'Hide password'"
+            (click)="hidePassword = !hidePassword"
+          >
+            <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+      </div>
+
+      <div class="auth-form__row">
+        <mat-checkbox class="auth-form__checkbox" [(ngModel)]="staySignedIn" name="staySignedIn">
+          Stay signed in
+        </mat-checkbox>
+        <a class="auth-form__forgot" routerLink="/auth/forgot-password">Forgot password?</a>
+      </div>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        class="auth-form__submit"
+        [disabled]="loading()"
+      >
+        <span class="auth-form__submit-content">
+          <mat-icon aria-hidden="true">login</mat-icon>
+          <span>{{ loading() ? 'Signing in…' : 'Sign in' }}</span>
+        </span>
+      </button>
+    </form>
+
+    <footer class="auth-panel__footer">
+      <p class="auth-panel__footer-note">
+        DeltaSynk staff only. Accounts are created by the portal owner.
+      </p>
+    </footer>
+  }
+</dp-auth-shell>

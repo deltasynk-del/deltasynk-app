@@ -1,0 +1,80 @@
+<header class="mb-6 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="dp-page-title">Hello, {{ firstName() }}</h1>
+    <p class="dp-page-sub">What is waiting for a decision across the DeltaSynk apps.</p>
+  </div>
+  <button type="button" class="btn-secondary btn-sm" [disabled]="counts.loading()" (click)="counts.refresh()">
+    <mat-icon>refresh</mat-icon>
+    Refresh
+  </button>
+</header>
+
+@if (counts.failed() && !summary()) {
+  <div class="dp-card dp-empty">
+    Could not load the dashboard. Check that the portal API is running, then refresh.
+  </div>
+} @else if (!summary()) {
+  <div class="dp-card dp-empty">Loading…</div>
+} @else {
+  @if (cards().length === 0) {
+    <div class="dp-card dp-empty">
+      Your role has no request queues on the web portal yet. Your tools will be in the mobile app.
+    </div>
+  }
+
+  <div class="grid gap-4 md:grid-cols-3">
+    @for (card of cards(); track card.title) {
+      <a [routerLink]="card.route" [queryParams]="{}" class="dp-card block p-5 transition hover:border-brand-600/50 hover:shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-semibold text-slate-600">{{ card.title }}</span>
+          <mat-icon class="text-slate-400">{{ card.icon }}</mat-icon>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span class="text-4xl font-extrabold tabular-nums" [class.text-amber-700]="card.waiting > 0" [class.text-slate-900]="card.waiting === 0">
+            {{ card.waiting | number }}
+          </span>
+          <span class="text-sm text-slate-500">{{ card.waitingLabel }}</span>
+        </div>
+        @if (card.waiting > 0) {
+          <p class="mt-2 text-sm text-slate-600">
+            @if (card.detail) {
+              <span class="font-semibold">{{ card.detail }}</span> ·
+            }
+            oldest has waited {{ card.oldest }}
+          </p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            @for (a of card.byApp; track a.app) {
+              <span class="dp-badge dp-badge--slate">{{ a.app }} · {{ a.count }}</span>
+            }
+          </div>
+        } @else {
+          <p class="mt-2 text-sm text-slate-500">Nothing waiting.</p>
+        }
+        @if (card.footnote) {
+          <p class="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">{{ card.footnote }}</p>
+        }
+      </a>
+    }
+  </div>
+
+  @if (summary()?.recentActivity; as activity) {
+    <section class="mt-8">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-slate-900">Recent decisions and changes</h2>
+        <a routerLink="/audit" class="text-sm font-semibold text-brand-600 hover:underline">Full activity log</a>
+      </div>
+      <div class="dp-card divide-y divide-slate-100">
+        @for (entry of activity; track entry.id) {
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
+            <p class="text-sm text-slate-700">{{ entry.summary }}</p>
+            <p class="text-xs text-slate-500">
+              {{ entry.actorLabel || 'System' }} · {{ entry.createdAt | date: 'd MMM, HH:mm' }}
+            </p>
+          </div>
+        } @empty {
+          <p class="dp-empty">No activity yet.</p>
+        }
+      </div>
+    </section>
+  }
+}

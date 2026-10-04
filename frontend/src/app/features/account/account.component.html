@@ -1,0 +1,260 @@
+<header class="mb-5">
+  <h1 class="dp-page-title">My account & security</h1>
+  <p class="dp-page-sub">Your sign-in details and two-step verification.</p>
+</header>
+
+<div class="grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+  <div class="space-y-5">
+    <section class="dp-card p-5">
+      <h2 class="text-sm font-bold text-slate-900">Profile</h2>
+      <form class="mt-4 space-y-4" (ngSubmit)="saveProfile()">
+        <div>
+          <label class="dp-label" for="p-name">Full name</label>
+          <input id="p-name" class="dp-input" name="fullName" [(ngModel)]="fullName" autocomplete="name" required />
+        </div>
+        <div>
+          <label class="dp-label" for="p-email">Email</label>
+          <input id="p-email" class="dp-input" [value]="user()?.email" disabled />
+          <p class="mt-1 text-xs text-slate-500">Only an owner can change your email.</p>
+        </div>
+        <div>
+          <label class="dp-label" for="p-phone">Phone</label>
+          <input id="p-phone" class="dp-input" type="tel" name="phone" [(ngModel)]="phone" placeholder="0712 345 678" autocomplete="tel" />
+          <p class="mt-1 text-xs text-slate-500">You can sign in with this number instead of your email.</p>
+        </div>
+        <div>
+          <span class="dp-label">Role</span>
+          <span class="dp-badge dp-badge--blue">{{ roleLabel() }}</span>
+        </div>
+        @if (profileError()) {
+          <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ profileError() }}</p>
+        }
+        <button type="submit" class="btn-primary" [disabled]="savingProfile()">
+          {{ savingProfile() ? 'Saving…' : 'Save profile' }}
+        </button>
+      </form>
+    </section>
+
+    <section class="dp-card p-5">
+      <h2 class="text-sm font-bold text-slate-900">Password</h2>
+      <p class="mt-1 text-sm text-slate-600">Changing it signs you out on every other device.</p>
+      <a routerLink="/auth/change-password" class="btn-secondary mt-3">
+        <mat-icon>lock</mat-icon>
+        Change password
+      </a>
+    </section>
+  </div>
+
+  <section id="two-step" class="dp-card p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-bold text-slate-900">Two-step verification</h2>
+        <p class="mt-1 max-w-prose text-sm text-slate-600">
+          After your password, the portal asks for a code only you can get. If someone learns your password they still cannot sign in.
+        </p>
+      </div>
+      @if (status(); as s) {
+        <span class="dp-badge" [class.dp-badge--green]="s.enabled" [class.dp-badge--slate]="!s.enabled">
+          {{ s.enabled ? 'On' : 'Off' }}
+        </span>
+      }
+    </div>
+
+    @if (status(); as s) {
+      <ul class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">
+        @for (m of methods; track m.method) {
+          <li class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5">
+            <mat-icon class="text-slate-400">{{ m.icon }}</mat-icon>
+            <div class="min-w-[12rem] flex-1">
+              <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                {{ m.label }}
+                @if (isSetUp(m.method)) {
+                  <span class="dp-badge dp-badge--green">Set up</span>
+                  @if (s.primaryMethod === m.method) {
+                    <span class="dp-badge dp-badge--blue">Asked first</span>
+                  }
+                }
+              </div>
+              <p class="mt-0.5 text-xs text-slate-500">
+                {{ m.method === 'sms' && s.methods.sms.phone ? 'Codes go to ' + s.methods.sms.phone : m.description }}
+              </p>
+            </div>
+            <div class="flex gap-2">
+              @if (isSetUp(m.method)) {
+                @if (s.primaryMethod !== m.method) {
+                  <button type="button" class="btn-secondary btn-sm" (click)="makePrimary(m.method)">Ask first</button>
+                }
+                <button type="button" class="btn-danger btn-sm" (click)="openAction({ kind: 'remove', method: m.method })">Remove</button>
+              } @else {
+                <button type="button" class="btn-primary btn-sm" [disabled]="busy()" (click)="startSetup(m.method)">Set up</button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (s.enabled) {
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3.5">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Recovery codes</div>
+            <p class="mt-0.5 text-xs" [class.text-red-700]="s.recoveryCodesRemaining < 3" [class.text-slate-500]="s.recoveryCodesRemaining >= 3">
+              {{ s.recoveryCodesRemaining }} unused. One gets you in if you lose your phone.
+            </p>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" (click)="openAction({ kind: 'recovery' })">New codes</button>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-xs text-slate-500">
+            @if (s.lastUsedAt) {
+              Last used {{ s.lastUsedAt | date: 'd MMM y, HH:mm' }}.
+            }
+          </p>
+          <button type="button" class="btn-danger btn-sm" (click)="openAction({ kind: 'disable' })">
+            Turn off two-step verification
+          </button>
+        </div>
+      }
+    } @else if (statusError()) {
+      <p class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ statusError() }}</p>
+    } @else {
+      <p class="mt-4 text-sm text-slate-500">Loading…</p>
+    }
+  </section>
+</div>
+
+@if (setup(); as st) {
+  <dp-modal [title]="'Set up ' + (st.method === 'totp' ? 'authenticator app' : st.method === 'email' ? 'email codes' : 'SMS codes')" (closed)="closeSetup()">
+    @if (st.step === 'phone') {
+      <form (ngSubmit)="sendSmsSetupCode()">
+        <label class="dp-label" for="sms-phone">Phone number for codes</label>
+        <input id="sms-phone" class="dp-input" type="tel" name="smsPhone" [(ngModel)]="smsPhone" placeholder="0712 345 678" autocomplete="tel" />
+        @if (dialogError()) {
+          <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+        }
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" class="btn-secondary" (click)="closeSetup()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="busy()">{{ busy() ? 'Sending…' : 'Send code' }}</button>
+        </div>
+      </form>
+    } @else {
+      @if (st.method === 'totp') {
+        <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          <li>Open your authenticator app and add an account.</li>
+          <li>Scan this QR code, or type the key below.</li>
+          <li>Enter the 6-digit code the app shows.</li>
+        </ol>
+        <div class="mt-4 flex flex-col items-center gap-2">
+          <img [src]="st.qrDataUrl" alt="QR code for your authenticator app" width="180" height="180" class="rounded-lg border border-slate-200" />
+          <code class="select-all break-all text-center font-mono text-xs text-slate-700">{{ st.secret }}</code>
+        </div>
+      } @else {
+        <p class="text-sm text-slate-700">
+          We sent a 6-digit code to your {{ st.method === 'email' ? 'email' : 'phone' }}. Enter it to confirm it reaches you.
+        </p>
+        @if (st.devCode) {
+          <p class="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            Development mode — delivery is not configured. Code: <strong>{{ st.devCode }}</strong>
+          </p>
+        }
+      }
+
+      <form class="mt-4" (ngSubmit)="confirmSetup()">
+        <label class="dp-label" for="setup-code">Verification code</label>
+        <input id="setup-code" class="dp-input font-mono tracking-widest" name="code" [(ngModel)]="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" />
+        @if (dialogError()) {
+          <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+        }
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" class="btn-secondary" [disabled]="busy()" (click)="closeSetup()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="busy() || code.trim().length < 4">
+            {{ busy() ? 'Checking…' : 'Confirm' }}
+          </button>
+        </div>
+      </form>
+    }
+  </dp-modal>
+}
+
+@if (action(); as a) {
+  <dp-modal
+    [title]="a.kind === 'recovery' ? 'Create new recovery codes' : a.kind === 'disable' ? 'Turn off two-step verification' : 'Remove this method'"
+    (closed)="closeAction()"
+  >
+    <p class="text-sm text-slate-700">
+      @switch (a.kind) {
+        @case ('recovery') {
+          Your old recovery codes stop working. Confirm with your password.
+        }
+        @case ('disable') {
+          Your account will be protected by your password alone. Confirm with your password and a current code.
+        }
+        @case ('remove') {
+          If this is your only method, two-step verification is turned off. Confirm with your password and a current code.
+        }
+      }
+    </p>
+    <form class="mt-4 space-y-4" (ngSubmit)="runAction()">
+      <div>
+        <label class="dp-label" for="act-password">Password</label>
+        <input id="act-password" class="dp-input" type="password" name="password" [(ngModel)]="password" autocomplete="current-password" />
+      </div>
+      @if (a.kind !== 'recovery') {
+        <div>
+          <label class="dp-label" for="act-code">Verification code or recovery code</label>
+          <input id="act-code" class="dp-input font-mono" name="code" [(ngModel)]="code" autocomplete="one-time-code" maxlength="20" />
+          @if (codeChannels().length) {
+            <p class="mt-1.5 text-xs text-slate-500">
+              No authenticator to hand?
+              @for (channel of codeChannels(); track channel) {
+                <button type="button" class="font-semibold text-brand-600 underline" (click)="sendActionCode(channel)">
+                  Send a code by {{ channel === 'email' ? 'email' : 'SMS' }}
+                </button>
+                {{ ' ' }}
+              }
+            </p>
+          }
+          @if (devCode()) {
+            <p class="mt-2 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800">
+              Development mode — code: <strong>{{ devCode() }}</strong>
+            </p>
+          }
+        </div>
+      }
+      @if (dialogError()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="busy()" (click)="closeAction()">Cancel</button>
+        <button type="submit" [class]="a.kind === 'recovery' ? 'btn-primary' : 'btn-danger'" [disabled]="busy() || !password">
+          @switch (a.kind) {
+            @case ('recovery') { Create new codes }
+            @case ('disable') { Turn off }
+            @case ('remove') { Remove method }
+          }
+        </button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (recoveryCodes(); as codes) {
+  <dp-modal title="Save your recovery codes" (closed)="recoveryCodes.set(null)">
+    <p class="text-sm text-slate-700">
+      Two-step verification is on. Keep these codes somewhere safe and offline — each one signs you in once if you lose
+      your phone. They are not shown again.
+    </p>
+    <div class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-bold text-slate-900">
+      @for (c of codes; track c) {
+        <span class="select-all">{{ c }}</span>
+      }
+    </div>
+    <div class="mt-5 flex justify-between gap-2">
+      <button type="button" class="btn-secondary" (click)="copyRecoveryCodes()">
+        <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+        {{ copied() ? 'Copied' : 'Copy all' }}
+      </button>
+      <button type="button" class="btn-primary" (click)="recoveryCodes.set(null)">I have saved them</button>
+    </div>
+  </dp-modal>
+}

@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Access level of a portal user. What each role may do lives in
+/// src/access/permissions.ts — the single source of truth for both API and UI.
+enum PortalRole {
+  OWNER
+  MANAGER
+  FRONT_OFFICE
+  MARKETING_MANAGER
+  MARKETING_OFFICER
+}
+
+enum TwoFactorMethod {
+  totp
+  email
+  sms
+}
+
+/// Systems that send requests to the portal.
+enum SourceApp {
+  QUALITYSCHOOL
+  SYNKMART
+  DELTASYNK_WEBSITE
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentKind {
+  SUBSCRIPTION
+  SMS_TOPUP
+}
+
+/// PENDING = started, nothing paid yet. SUBMITTED = customer says they paid
+/// (e.g. bank reference entered) and is waiting for staff to verify.
+enum PaymentRequestStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+/// Whether the source app has learned about a decision made here.
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  email              String     @unique
+  /// Digits only, international form (e.g. 255712345678) — see normalizePhone().
+  phone              String?    @unique
+  passwordHash       String     @map("password_hash")
+  fullName           String     @map("full_name")
+  role               PortalRole
+  isActive           Boolean    @default(true) @map("is_active")
+  /// Set for accounts created with a temporary password.
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  /// Bumped whenever existing sessions must stop working (password, role, deactivation).
+  tokenVersion       Int        @default(0) @map("token_version")
+  failedLoginCount   Int        @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?  @map("locked_until")
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdById        String?    @map("created_by") @db.Uuid
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  twoFactor           UserTwoFactor?
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+  senderIdReviews     SenderIdRequest[]
+  paymentReviews      PaymentRequest[]
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model UserTwoFactor {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String           @unique @map("user_id") @db.Uuid
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled             Boolean          @default(false)
+  primaryMethod       TwoFactorMethod? @map("primary_method")
+  totpSecret          String?          @map("totp_secret")
+  totpConfirmedAt     DateTime?        @map("totp_confirmed_at")
+  emailOtpConfirmedAt DateTime?        @map("email_otp_confirmed_at")
+  smsOtpPhone         String?          @map("sms_otp_phone")
+  smsOtpConfirmedAt   DateTime?        @map("sms_otp_confirmed_at")
+  challengeCodeHash   String?          @map("challenge_code_hash")
+  challengeMethod     TwoFactorMethod? @map("challenge_method")
+  challengeExpiresAt  DateTime?        @map("challenge_expires_at")
+  challengeAttempts   Int              @default(0) @map("challenge_attempts")
+  lastUsedAt          DateTime?        @map("last_used_at")
+  lastUsedMethod      TwoFactorMethod? @map("last_used_method")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  recoveryCodes TwoFactorRecoveryCode[]
+
+  @@map("user_two_factor")
+}
+
+model TwoFactorRecoveryCode {
+  id          String        @id @default(uuid()) @db.Uuid
+  twoFactorId String        @map("two_factor_id") @db.Uuid
+  twoFactor   UserTwoFactor @relation(fields: [twoFactorId], references: [id], onDelete: Cascade)
+  codeHash    String        @map("code_hash")
+  usedAt      DateTime?     @map("used_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([twoFactorId])
+  @@map("two_factor_recovery_codes")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// One row per system that talks to the portal.
+model ConnectedApp {
+  id              String    @id @default(uuid()) @db.Uuid
+  code            SourceApp @unique
+  name            String
+  isActive        Boolean   @default(true) @map("is_active")
+  /// sha256 of the key the app sends in x-portal-api-key. The key itself is shown once.
+  inboundKeyHash  String?   @unique @map("inbound_key_hash")
+  inboundKeyHint  String?   @map("inbound_key_hint")
+  inboundKeySetAt DateTime? @map("inbound_key_set_at")
+  /// The app's own API (e.g. http://localhost:3020/api/v1), used to push decisions back.
+  callbackBaseUrl String?   @map("callback_base_url")
+  /// AES-256-GCM encrypted platform key of that app.
+  callbackKeyEnc  String?   @map("callback_key_enc")
+  lastSeenAt      DateTime? @map("last_seen_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("connected_apps")
+}
+
+model SenderIdRequest {
+  id               String          @id @default(uuid()) @db.Uuid
+  app              SourceApp
+  /// The request's id inside the source app.
+  externalId       String          @map("external_id")
+  senderId         String          @map("sender_id")
+  purpose          String?
+  tenantName       String          @map("tenant_name")
+  tenantRef        String?         @map("tenant_ref")
+  tenantPhone      String?         @map("tenant_phone")
+  requestedByName  String?         @map("requested_by_name")
+  requestedByEmail String?         @map("requested_by_email")
+  status           ReviewStatus    @default(PENDING)
+  reviewNote       String?         @map("review_note")
+  reviewedById     String?         @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?       @map("reviewed_at")
+  deliveryStatus   DeliveryStatus? @map("delivery_status")
+  deliveryError    String?         @map("delivery_error")
+  deliveredAt      DateTime?       @map("delivered_at")
+  requestedAt      DateTime        @default(now()) @map("requested_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  reviewedBy User? @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([app, externalId])
+  @@index([status, requestedAt])
+  @@map("sender_id_requests")
+}
+
+/// A subscription payment or SMS top-up reported by an app.
+model PaymentRequest {
+  id                String               @id @default(uuid()) @db.Uuid
+  app               SourceApp
+  kind              PaymentKind
+  /// The payment/order reference inside the source app.
+  reference         String
+  tenantName        String?              @map("tenant_name")
+  tenantRef         String?              @map("tenant_ref")
+  planCode          String?              @map("plan_code")
+  billingCycle      String?              @map("billing_cycle")
+  /// SMS credits bought (top-ups only).
+  units             Int?
+  amount            Decimal              @db.Decimal(12, 2)
+  currency          String               @default("TZS")
+  paymentMethod     String               @map("payment_method")
+  /// What the payer typed as proof (bank slip / transaction reference).
+  externalReference String?              @map("external_reference")
+  providerReference String?              @map("provider_reference")
+  payerName         String?              @map("payer_name")
+  payerEmail        String?              @map("payer_email")
+  payerPhone        String?              @map("payer_phone")
+  status            PaymentRequestStatus @default(PENDING)
+  reviewNote        String?              @map("review_note")
+  /// Null when the status came from the app itself (e.g. Selcom confirmed it).
+  reviewedById      String?              @map("reviewed_by") @db.Uuid
+  reviewedAt        DateTime?            @map("reviewed_at")
+  deliveryStatus    DeliveryStatus?      @map("delivery_status")
+  deliveryError     String?              @map("delivery_error")
+  deliveredAt       DateTime?            @map("delivered_at")
+  requestedAt       DateTime             @default(now()) @map("requested_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  reviewedBy User? @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([app, reference])
+  @@index([kind, status, requestedAt])
+  @@map("payment_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  /// Kept even if the user is later deleted.
+  actorLabel String?  @map("actor_label")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  summary    String
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+enum WarrantyPackStatus {
+  /// Printed, waiting for a shop to claim it.
+  AVAILABLE
+  /// A shop added the pack's cards to its account.
+  CLAIMED
+  /// Lost, damaged or withdrawn: can no longer be claimed.
+  VOID
+}
+
+/// Artwork for printed warranty cards: card size, both sides, and where each card's
+/// barcode and QR code go on the back. Positions are % of the card (x / widths of its
+/// width, y / heights of its height). How many fit on an A4 page follows from the size.
+model WarrantyCardDesign {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  cardWidthMm    Float    @default(210) @map("card_width_mm")
+  cardHeightMm   Float    @default(74.25) @map("card_height_mm")
+  /// Blank border kept around the page (most printers cannot print the last few mm).
+  pageMarginMm   Float    @default(0) @map("page_margin_mm")
+  /// Space between cards on the sheet.
+  gapMm          Float    @default(0) @map("gap_mm")
+  frontImage     Bytes?   @map("front_image")
+  frontImageType String?  @map("front_image_type")
+  backImage      Bytes?   @map("back_image")
+  backImageType  String?  @map("back_image_type")
+  /// Bumped on every image change so browsers fetch the new picture.
+  imageVersion   Int      @default(0) @map("image_version")
+  qrX            Float    @default(88.8) @map("qr_x")
+  qrY            Float    @default(29.5) @map("qr_y")
+  /// Square; % of the card's width.
+  qrSize         Float    @default(7.8) @map("qr_size")
+  barcodeX       Float    @default(86.5) @map("barcode_x")
+  barcodeY       Float    @default(72) @map("barcode_y")
+  barcodeWidth   Float    @default(11.5) @map("barcode_width")
+  barcodeHeight  Float    @default(21) @map("barcode_height")
+  showNumber     Boolean  @default(true) @map("show_number")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  packs WarrantyCardPack[]
+
+  @@map("warranty_card_designs")
+}
+
+/// A pack of printed warranty cards with one claim code. The shop owner enters the
+/// code in SynkMart (Warranties → Cards) and the pack's cards become that shop's.
+model WarrantyCardPack {
+  id                String             @id @default(uuid()) @db.Uuid
+  /// The app whose shops can claim it.
+  app               SourceApp          @default(SYNKMART)
+  /// Packs generated (and printed) together.
+  runId             String             @map("run_id") @db.Uuid
+  /// What the shop types or scans to claim the pack, e.g. K7M2-9QPT.
+  code              String             @unique
+  designId          String?            @map("design_id") @db.Uuid
+  cardCount         Int                @map("card_count")
+  status            WarrantyPackStatus @default(AVAILABLE)
+  claimedTenantRef  String?            @map("claimed_tenant_ref")
+  claimedTenantName String?            @map("claimed_tenant_name")
+  claimedAt         DateTime?          @map("claimed_at")
+  voidReason        String?            @map("void_reason")
+  voidedAt          DateTime?          @map("voided_at")
+  createdById       String?            @map("created_by") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  design WarrantyCardDesign? @relation(fields: [designId], references: [id], onDelete: SetNull)
+  cards  WarrantyStockCard[]
+
+  @@index([status, createdAt])
+  @@index([runId])
+  @@map("warranty_card_packs")
+}
+
+/// One printed card. Its 12-digit number (always starting with 9, so it can never clash
+/// with numbers shops generate in SynkMart) is in the barcode and in the QR link.
+model WarrantyStockCard {
+  id        String   @id @default(uuid()) @db.Uuid
+  packId    String   @map("pack_id") @db.Uuid
+  number    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  pack WarrantyCardPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@index([packId])
+  @@map("warranty_stock_cards")
+}

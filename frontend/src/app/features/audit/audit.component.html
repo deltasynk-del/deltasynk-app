@@ -1,0 +1,46 @@
+<header class="mb-5 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="dp-page-title">Activity log</h1>
+    <p class="dp-page-sub">Every decision, sign-in and settings change, with who did it. Entries cannot be edited.</p>
+  </div>
+  <select class="dp-input !w-auto" [(ngModel)]="action" (ngModelChange)="applyFilter()" aria-label="Show">
+    @for (f of filters; track f.value) {
+      <option [value]="f.value">{{ f.label }}</option>
+    }
+  </select>
+</header>
+
+@if (loadError()) {
+  <div class="dp-card dp-empty text-red-700">{{ loadError() }}</div>
+} @else {
+  <div class="dp-table-wrap" [class.opacity-60]="loading()">
+    <table class="dp-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Who</th>
+          <th>What happened</th>
+          <th>From</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <td class="whitespace-nowrap">{{ row.createdAt | date: 'd MMM y, HH:mm:ss' }}</td>
+            <td>{{ row.actorLabel || 'System' }}</td>
+            <td>
+              <div class="text-slate-900">{{ row.summary }}</div>
+              <div class="mt-0.5 font-mono text-xs text-slate-400">{{ row.action }}</div>
+            </td>
+            <td class="whitespace-nowrap font-mono text-xs text-slate-500">{{ row.ip || '—' }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="dp-empty">{{ loading() ? 'Loading…' : 'Nothing recorded for this filter.' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <dp-pager [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="goTo($event)" />
+}

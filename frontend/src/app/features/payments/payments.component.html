@@ -1,0 +1,211 @@
+<header class="mb-5">
+  <h1 class="dp-page-title">{{ title }}</h1>
+  <p class="dp-page-sub">{{ intro }}</p>
+</header>
+
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div class="dp-pill-tabs" role="tablist">
+    @for (t of tabs; track t.value) {
+      <button
+        type="button"
+        role="tab"
+        class="dp-pill-tab"
+        [class.dp-pill-tab--active]="tab() === t.value"
+        [attr.aria-selected]="tab() === t.value"
+        (click)="setTab(t.value)"
+      >
+        {{ t.label }}
+        @if (countFor(t.value) !== null) {
+          <span class="dp-pill-tab__count">{{ countFor(t.value) }}</span>
+        }
+      </button>
+    }
+  </div>
+  <form class="flex flex-wrap gap-2" (ngSubmit)="applyFilters()">
+    <select class="dp-input !w-auto" name="app" [(ngModel)]="app" (ngModelChange)="applyFilters()" aria-label="App">
+      <option value="">All apps</option>
+      @for (a of apps; track a.value) {
+        <option [value]="a.value">{{ a.label }}</option>
+      }
+    </select>
+    <input class="dp-input !w-56" type="search" name="search" [(ngModel)]="search" placeholder="Reference, customer or payer" aria-label="Search" />
+    <button type="submit" class="btn-secondary">Search</button>
+  </form>
+</div>
+
+@if (loadError()) {
+  <div class="dp-card dp-empty text-red-700">{{ loadError() }}</div>
+} @else {
+  <div class="dp-table-wrap" [class.opacity-60]="loading()">
+    <table class="dp-table">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Customer</th>
+          <th>{{ isTopUps ? 'Credits' : 'Plan' }}</th>
+          <th class="text-right">Amount</th>
+          <th>Payment proof</th>
+          <th>Status</th>
+          @if (canVerify()) {
+            <th class="text-right">Action</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <td class="whitespace-nowrap">
+              <div class="font-mono text-xs font-bold text-slate-900">{{ row.reference }}</div>
+              <div class="mt-0.5 text-xs text-slate-500">{{ row.requestedAt | date: 'd MMM y, HH:mm' }}</div>
+            </td>
+            <td>
+              <div class="font-semibold text-slate-900">{{ row.tenantName || row.payerName || '—' }}</div>
+              <div class="mt-0.5 text-xs text-slate-500">{{ appLabel(row.app) }}</div>
+            </td>
+            <td class="whitespace-nowrap">
+              @if (isTopUps) {
+                {{ row.units !== null ? (row.units | number) + ' SMS' : '—' }}
+              } @else {
+                <span class="capitalize">{{ row.planCode || '—' }}</span>
+                @if (row.billingCycle) {
+                  <div class="mt-0.5 text-xs capitalize text-slate-500">{{ row.billingCycle }}</div>
+                }
+              }
+            </td>
+            <td class="whitespace-nowrap text-right font-semibold tabular-nums text-slate-900">
+              {{ row.currency }} {{ row.amount | number }}
+            </td>
+            <td>
+              <div>{{ methodLabel(row.paymentMethod) }}</div>
+              @if (row.externalReference) {
+                <div class="mt-0.5 font-mono text-xs text-slate-900">{{ row.externalReference }}</div>
+              } @else if (row.status === 'PENDING') {
+                <div class="mt-0.5 text-xs text-slate-500">No reference submitted</div>
+              }
+              @if (row.payerName || row.payerPhone) {
+                <div class="mt-0.5 text-xs text-slate-500">
+                  {{ row.payerName }}{{ row.payerName && row.payerPhone ? ' · ' : '' }}{{ row.payerPhone }}
+                </div>
+              }
+            </td>
+            <td>
+              @switch (row.status) {
+                @case ('SUBMITTED') {
+                  <span class="dp-badge dp-badge--amber">To verify</span>
+                }
+                @case ('PENDING') {
+                  <span class="dp-badge dp-badge--slate">Not paid yet</span>
+                }
+                @case ('APPROVED') {
+                  <span class="dp-badge dp-badge--green">Verified</span>
+                }
+                @case ('REJECTED') {
+                  <span class="dp-badge dp-badge--red">Rejected</span>
+                }
+              }
+              @if (!isOpen(row)) {
+                <div class="mt-1 text-xs text-slate-500">
+                  @if (row.settledByApp) {
+                    Confirmed automatically by {{ appLabel(row.app) }}
+                  } @else {
+                    {{ row.reviewedByName || 'Unknown' }} · {{ row.reviewedAt | date: 'd MMM, HH:mm' }}
+                  }
+                </div>
+                @if (row.reviewNote) {
+                  <div class="mt-1 max-w-[14rem] text-xs text-slate-600">“{{ row.reviewNote }}”</div>
+                }
+                @if (row.deliveryStatus === 'PENDING') {
+                  <div class="mt-1 text-xs text-slate-500">{{ appLabel(row.app) }} has not picked it up yet</div>
+                }
+              }
+            </td>
+            @if (canVerify()) {
+              <td class="whitespace-nowrap text-right">
+                @if (isOpen(row)) {
+                  <button type="button" class="btn-primary btn-sm" (click)="openReview(row, true)">Verify</button>
+                  <button type="button" class="btn-danger btn-sm ml-1.5" (click)="openReview(row, false)">Reject</button>
+                }
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="canVerify() ? 7 : 6" class="dp-empty">
+              @if (loading()) {
+                Loading…
+              } @else if (tab() === 'SUBMITTED' && !search && !app) {
+                No payments are waiting to be verified.
+              } @else {
+                No payments match.
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <dp-pager [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="goTo($event)" />
+}
+
+@if (reviewing(); as review) {
+  <dp-modal [title]="review.approve ? 'Verify payment' : 'Reject payment'" (closed)="closeReview()">
+    <dl class="grid grid-cols-[7.5rem_1fr] gap-y-2 text-sm">
+      <dt class="text-slate-500">Amount</dt>
+      <dd class="text-lg font-extrabold tabular-nums text-slate-900">{{ review.row.currency }} {{ review.row.amount | number }}</dd>
+      <dt class="text-slate-500">Customer</dt>
+      <dd>
+        {{ review.row.tenantName || review.row.payerName || '—' }}
+        <span class="text-slate-500">({{ appLabel(review.row.app) }})</span>
+      </dd>
+      <dt class="text-slate-500">{{ isTopUps ? 'Credits' : 'Plan' }}</dt>
+      <dd class="capitalize">
+        @if (isTopUps) {
+          {{ review.row.units | number }} SMS
+        } @else {
+          {{ review.row.planCode }} {{ review.row.billingCycle }}
+        }
+      </dd>
+      <dt class="text-slate-500">Paid by</dt>
+      <dd>{{ methodLabel(review.row.paymentMethod) }}</dd>
+      <dt class="text-slate-500">Payer’s reference</dt>
+      <dd class="font-mono font-bold text-slate-900">{{ review.row.externalReference || '— none submitted —' }}</dd>
+      <dt class="text-slate-500">Our reference</dt>
+      <dd class="font-mono text-xs">{{ review.row.reference }}</dd>
+    </dl>
+
+    @if (review.approve) {
+      <p class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        @if (review.row.status === 'PENDING') {
+          The customer has not submitted any payment reference. Only verify if you have seen the money yourself.
+        } @else {
+          Check that this reference and amount appear on the bank or mobile money statement before verifying.
+          This cannot be undone here.
+        }
+      </p>
+    }
+
+    <form class="mt-4" (ngSubmit)="submitReview()">
+      <label class="dp-label" for="pay-note">
+        @if (!review.approve) {
+          Reason for rejecting
+        } @else if (review.row.status === 'PENDING') {
+          How did you confirm the payment?
+        } @else {
+          Note (optional)
+        }
+      </label>
+      <textarea id="pay-note" class="dp-input" rows="3" name="note" maxlength="500" [(ngModel)]="note"></textarea>
+
+      @if (dialogError()) {
+        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeReview()">Cancel</button>
+        <button type="submit" [class]="review.approve ? 'btn-primary' : 'btn-danger'" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : review.approve ? 'Verify payment' : 'Reject payment' }}
+        </button>
+      </div>
+    </form>
+  </dp-modal>
+}

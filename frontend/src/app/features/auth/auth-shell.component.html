@@ -1,0 +1,42 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <aside class="auth-hero">
+      <div>
+        <div class="auth-hero__brand">
+          <div class="auth-hero__logo" aria-hidden="true">Δ</div>
+          <div>
+            <div class="auth-hero__title">DeltaSynk</div>
+            <div class="auth-hero__subtitle">Operations Portal</div>
+          </div>
+        </div>
+
+        <h2 class="auth-hero__headline">{{ headline() }}</h2>
+        <p class="auth-hero__lead">{{ lead() }}</p>
+
+        @if (features().length) {
+          <ul class="auth-hero__features">
+            @for (feature of features(); track feature.text) {
+              <li class="auth-hero__feature">
+                <span class="auth-hero__feature-icon" aria-hidden="true">
+                  <mat-icon>{{ feature.icon }}</mat-icon>
+                </span>
+                <span>{{ feature.text }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <p class="auth-hero__copyright">© {{ currentYear }} DeltaSynk Technologies LTD</p>
+    </aside>
+
+    <main class="auth-panel">
+      <div class="mobile-brand-header">
+        <div class="auth-hero__logo auth-hero__logo--dark" aria-hidden="true">Δ</div>
+        <div style="font-weight: 700;">DeltaSynk</div>
+        <div style="font-size: 0.8125rem; color: #64748b;">Operations Portal</div>
+      </div>
+      <ng-content />
+    </main>
+  </div>
+</div>

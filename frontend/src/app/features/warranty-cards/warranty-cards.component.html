@@ -1,0 +1,335 @@
+<header class="mb-5">
+  <h1 class="dp-page-title">Warranty cards</h1>
+  <p class="dp-page-sub">
+    Printed warranty cards for SynkMart shops that don't print their own. Each pack has a claim code; the shop owner
+    enters it in SynkMart (Warranties → Cards) and the cards become that shop's.
+  </p>
+</header>
+
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div class="dp-pill-tabs" role="tablist">
+    <button type="button" role="tab" class="dp-pill-tab" [class.dp-pill-tab--active]="view() === 'packs'" (click)="setView('packs')">
+      <mat-icon class="!h-4 !w-4 !text-base">inventory_2</mat-icon> Packs
+    </button>
+    <button type="button" role="tab" class="dp-pill-tab" [class.dp-pill-tab--active]="view() === 'designs'" (click)="setView('designs')">
+      <mat-icon class="!h-4 !w-4 !text-base">palette</mat-icon> Card designs
+    </button>
+  </div>
+  @if (canManage()) {
+    @if (view() === 'packs') {
+      <button type="button" class="btn-primary" [disabled]="printableDesigns().length === 0" (click)="openGenerate()">
+        <mat-icon>add</mat-icon> Generate packs
+      </button>
+    } @else {
+      <button type="button" class="btn-primary" (click)="openNewDesign()"><mat-icon>add</mat-icon> New design</button>
+    }
+  }
+</div>
+
+@if (view() === 'packs') {
+  @if (canManage() && printableDesigns().length === 0) {
+    <div class="dp-card mb-4 p-4 text-sm text-slate-700">
+      Create a card design with at least the back picture (the side with the codes) before generating packs.
+      <button type="button" class="ml-1 font-semibold text-brand-700 hover:underline" (click)="setView('designs')">Go to card designs</button>
+    </div>
+  }
+
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="dp-pill-tabs" role="tablist">
+      @for (t of packTabs; track t.value) {
+        <button type="button" role="tab" class="dp-pill-tab" [class.dp-pill-tab--active]="packTab() === t.value" (click)="setPackTab(t.value)">
+          {{ t.label }}
+          @if (countFor(t.value) !== null) {
+            <span class="dp-pill-tab__count">{{ countFor(t.value) }}</span>
+          }
+        </button>
+      }
+    </div>
+    <form class="flex gap-2" (ngSubmit)="applySearch()">
+      <input class="dp-input !w-64" type="search" name="search" [(ngModel)]="search" placeholder="Pack code, shop or card number" aria-label="Search" />
+      <button type="submit" class="btn-secondary">Search</button>
+    </form>
+  </div>
+
+  @if (loadError()) {
+    <div class="dp-card dp-empty text-red-700">{{ loadError() }}</div>
+  } @else {
+    <div class="dp-table-wrap" [class.opacity-60]="loading()">
+      <table class="dp-table">
+        <thead>
+          <tr>
+            <th>Pack code</th>
+            <th>Cards</th>
+            <th>Design</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th class="text-right">Print</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (pack of packs(); track pack.id) {
+            <tr>
+              <td class="whitespace-nowrap"><span class="font-mono text-base font-bold tracking-wider text-slate-900">{{ pack.code }}</span></td>
+              <td>
+                <div>{{ pack.cardCount }}</div>
+                @if (pack.firstNumber) {
+                  <div class="mt-0.5 font-mono text-xs text-slate-500">from {{ pack.firstNumber }}</div>
+                }
+              </td>
+              <td>{{ pack.designName || '—' }}</td>
+              <td>
+                @switch (pack.status) {
+                  @case ('AVAILABLE') {
+                    <span class="dp-badge dp-badge--amber">Not claimed</span>
+                  }
+                  @case ('CLAIMED') {
+                    <span class="dp-badge dp-badge--green">Claimed</span>
+                    <div class="mt-1 text-xs text-slate-600">{{ pack.claimedTenantName }} · {{ pack.claimedAt | date: 'd MMM y' }}</div>
+                  }
+                  @case ('VOID') {
+                    <span class="dp-badge dp-badge--slate">Cancelled</span>
+                    @if (pack.voidReason) {
+                      <div class="mt-1 max-w-[14rem] text-xs text-slate-600">“{{ pack.voidReason }}”</div>
+                    }
+                  }
+                }
+              </td>
+              <td class="whitespace-nowrap">
+                <div>{{ pack.createdAt | date: 'd MMM y' }}</div>
+                @if (pack.createdByName) {
+                  <div class="mt-0.5 text-xs text-slate-500">by {{ pack.createdByName }}</div>
+                }
+              </td>
+              <td class="whitespace-nowrap text-right">
+                @if (pack.status !== 'VOID') {
+                  <button type="button" class="btn-secondary btn-sm" title="Print this pack's cards" (click)="print(pack, 'cards', false)">
+                    <mat-icon>print</mat-icon> Cards
+                  </button>
+                  <button type="button" class="btn-secondary btn-sm ml-1.5" title="Print the pack label with its claim code" (click)="print(pack, 'labels', false)">
+                    <mat-icon>label</mat-icon> Label
+                  </button>
+                }
+                @if (canManage() && pack.status === 'AVAILABLE') {
+                  <button type="button" class="btn-danger btn-sm ml-1.5" (click)="openVoid(pack)">Cancel</button>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="dp-empty">
+                @if (loading()) {
+                  Loading…
+                } @else {
+                  No packs here yet.
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <dp-pager [total]="total()" [page]="page()" [pageSize]="pageSize" (pageChange)="goTo($event)" />
+  }
+} @else {
+  <!-- Designs -->
+  @if (editing(); as form) {
+    <section class="dp-card mb-5 p-5">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-base font-bold text-slate-900">Edit design</h2>
+        <button type="button" class="btn-secondary btn-sm" (click)="editing.set(null)"><mat-icon>close</mat-icon> Close</button>
+      </div>
+
+      <label class="dp-label" for="design-name">Name</label>
+      <input id="design-name" class="dp-input !w-80" name="name" maxlength="80" [(ngModel)]="form.name" [disabled]="!canManage()" />
+
+      <h3 class="mt-5 text-sm font-bold text-slate-900">Card size</h3>
+      <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        @for (field of sizeFields; track field.key) {
+          <div>
+            <label class="dp-label" [attr.for]="field.key">{{ field.label }}</label>
+            <input class="dp-input" type="number" step="0.5" [id]="field.key" [name]="field.key" [min]="field.min" [max]="field.max" [(ngModel)]="form[field.key]" [disabled]="!canManage()" />
+          </div>
+        }
+      </div>
+      @if (sheet(form); as s) {
+        @if (s.perPage > 0) {
+          <p class="mt-2 text-sm font-semibold text-brand-700">
+            {{ s.perPage }} card{{ s.perPage === 1 ? '' : 's' }} per A4 page — {{ s.cols }} across × {{ s.rows }} down ({{ s.orientation }}).
+          </p>
+        } @else {
+          <p class="mt-2 text-sm font-semibold text-red-700">A card this big does not fit on an A4 page with these margins.</p>
+        }
+      }
+      <p class="mt-1 text-xs text-slate-500">
+        Examples: 210 × 74.25 = 4 per page, 105 × 74.25 = 8, 85.6 × 54 (bank card) = 10. Most printers leave 3–5 mm blank at the
+        edges — add a page margin, or keep the artwork away from its edges.
+      </p>
+
+      <div class="mt-5 grid gap-4 md:grid-cols-2">
+        @for (side of ['front', 'back']; track side) {
+          @let url = side === 'front' ? editingDesign()?.frontImageUrl ?? null : editingDesign()?.backImageUrl ?? null;
+          <div>
+            <p class="text-sm font-bold text-slate-900">{{ side === 'front' ? 'Front (optional)' : 'Back — gets the barcode and QR code' }}</p>
+            @if (url) {
+              <img [src]="imageUrl(url)" alt="" class="mt-2 w-full rounded border border-slate-300" [style.aspect-ratio]="form.cardWidthMm + ' / ' + form.cardHeightMm" />
+            } @else {
+              <p class="mt-2 rounded-lg bg-slate-50 px-3 py-6 text-center text-sm text-slate-500">No picture yet</p>
+            }
+            @if (canManage()) {
+              <div class="mt-2 flex gap-2">
+                <button type="button" class="btn-secondary btn-sm" [disabled]="designBusy()" (click)="pickImage($any(side), imageInput)">
+                  <mat-icon>upload</mat-icon> {{ url ? 'Replace' : 'Upload' }}
+                </button>
+                @if (url) {
+                  <button type="button" class="btn-danger btn-sm" [disabled]="designBusy()" (click)="removeImage($any(side))">Remove</button>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+      <input #imageInput type="file" accept="image/jpeg,image/png,image/webp" class="hidden" (change)="onImage($event)" />
+      <p class="mt-2 text-xs text-slate-500">Export the artwork at 300 dpi in the card's shape, e.g. 210 × 74.25 mm = 2481 × 877 px.</p>
+
+      @if (editingDesign()?.backImageUrl; as back) {
+        <h3 class="mt-6 text-sm font-bold text-slate-900">Where the codes go on the back</h3>
+        <div class="mt-2 overflow-hidden rounded-lg border border-slate-300 shadow-sm">
+          <dp-warranty-card-face [imageUrl]="imageUrl(back)" [layout]="form" [number]="sampleNumber" [url]="sampleUrl" />
+        </div>
+        <p class="mt-1 text-xs text-slate-500">Preview with a sample number. Move the codes with the sliders.</p>
+        @if (canManage()) {
+          <div class="mt-4 grid gap-6 sm:grid-cols-2">
+            <fieldset class="space-y-2">
+              <legend class="text-sm font-semibold text-slate-900">QR code (link)</legend>
+              @for (field of qrFields; track field.key) {
+                <label class="block text-xs text-slate-600">
+                  {{ field.label }} · {{ form[field.key] }}%
+                  <input type="range" class="w-full accent-brand-600" step="0.5" [min]="field.min" [max]="field.max" [(ngModel)]="form[field.key]" />
+                </label>
+              }
+            </fieldset>
+            <fieldset class="space-y-2">
+              <legend class="text-sm font-semibold text-slate-900">Barcode (card number)</legend>
+              @for (field of barcodeFields; track field.key) {
+                <label class="block text-xs text-slate-600">
+                  {{ field.label }} · {{ form[field.key] }}%
+                  <input type="range" class="w-full accent-brand-600" step="0.5" [min]="field.min" [max]="field.max" [(ngModel)]="form[field.key]" />
+                </label>
+              }
+              <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" class="accent-brand-600" [(ngModel)]="form.showNumber" />
+                Print the number under the barcode
+              </label>
+            </fieldset>
+          </div>
+        }
+      }
+
+      @if (canManage()) {
+        <div class="mt-6 flex flex-wrap gap-2">
+          <button type="button" class="btn-primary" [disabled]="designBusy() || sheet(form).perPage < 1" (click)="saveDesign(form)">Save design</button>
+          @if (!editingDesign()?.packCount) {
+            <button type="button" class="btn-danger" (click)="deleteDesign(form)">Delete design</button>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  <div class="grid gap-4 md:grid-cols-2">
+    @for (design of designs(); track design.id) {
+      <article class="dp-card p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-slate-900">{{ design.name }}</h3>
+            <p class="text-xs text-slate-500">
+              {{ design.cardWidthMm }} × {{ design.cardHeightMm }} mm · {{ design.sheet.perPage }} per A4 ({{ design.sheet.orientation }})
+              · {{ design.packCount }} pack{{ design.packCount === 1 ? '' : 's' }}
+            </p>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" (click)="edit(design)">{{ canManage() ? 'Edit' : 'View' }}</button>
+        </div>
+        @if (design.backImageUrl) {
+          <div class="mt-3 overflow-hidden rounded border border-slate-200">
+            <dp-warranty-card-face [imageUrl]="imageUrl(design.backImageUrl)" [layout]="design" [number]="sampleNumber" [url]="sampleUrl" />
+          </div>
+        } @else {
+          <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Upload the back picture before printing with this design.</p>
+        }
+      </article>
+    } @empty {
+      <div class="dp-card dp-empty md:col-span-2">No card designs yet. Create one, then upload its artwork.</div>
+    }
+  </div>
+}
+
+@if (generating()) {
+  <dp-modal title="Generate card packs" (closed)="generating.set(false)">
+    <form (ngSubmit)="generate()">
+      <label class="dp-label" for="gen-design">Design</label>
+      <select id="gen-design" class="dp-input" name="design" [(ngModel)]="genDesignId">
+        @for (d of printableDesigns(); track d.id) {
+          <option [value]="d.id">{{ d.name }} — {{ d.sheet.perPage }} per A4</option>
+        }
+      </select>
+      <div class="mt-3 grid grid-cols-2 gap-3">
+        <div>
+          <label class="dp-label" for="gen-packs">Number of packs</label>
+          <input id="gen-packs" class="dp-input" type="number" name="packs" min="1" max="100" [(ngModel)]="genPackCount" />
+        </div>
+        <div>
+          <label class="dp-label" for="gen-cards">Cards per pack</label>
+          <input id="gen-cards" class="dp-input" type="number" name="cards" min="1" max="500" [(ngModel)]="genCardsPerPack" />
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-600">
+        {{ genPackCount * genCardsPerPack || 0 }} cards in total. Each pack gets its own claim code and starts on a new page
+        ({{ pagesPerPack() }} A4 sheet{{ pagesPerPack() === 1 ? '' : 's' }} per pack). Tip: make the cards per pack a multiple of
+        the cards per page so no space is wasted.
+      </p>
+      @if (dialogError()) {
+        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="generating.set(false)">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving() || !genDesignId">{{ saving() ? 'Creating…' : 'Create and print' }}</button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (creatingDesign()) {
+  <dp-modal title="New card design" (closed)="creatingDesign.set(false)">
+    <form (ngSubmit)="createDesign()">
+      <label class="dp-label" for="new-design-name">Name</label>
+      <input id="new-design-name" class="dp-input" name="name" maxlength="80" [(ngModel)]="newDesignName" placeholder="e.g. SynkMart standard — 4 per page" />
+      <p class="mt-1 text-xs text-slate-500">You set the size and upload the artwork next.</p>
+      @if (dialogError()) {
+        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" (click)="creatingDesign.set(false)">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">Create</button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (voiding(); as pack) {
+  <dp-modal title="Cancel pack" (closed)="voiding.set(null)">
+    <p class="text-sm text-slate-700">
+      Pack <span class="font-mono font-bold">{{ pack.code }}</span> ({{ pack.cardCount }} cards) can then no longer be claimed by any shop.
+    </p>
+    <form class="mt-4" (ngSubmit)="submitVoid()">
+      <label class="dp-label" for="void-reason">Reason</label>
+      <textarea id="void-reason" class="dp-input" rows="2" name="reason" maxlength="300" [(ngModel)]="voidReason" placeholder="e.g. Lost in delivery"></textarea>
+      @if (dialogError()) {
+        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="voiding.set(null)">Keep it</button>
+        <button type="submit" class="btn-danger" [disabled]="saving()">{{ saving() ? 'Cancelling…' : 'Cancel pack' }}</button>
+      </div>
+    </form>
+  </dp-modal>
+}

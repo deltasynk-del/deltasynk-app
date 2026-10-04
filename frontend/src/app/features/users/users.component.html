@@ -1,0 +1,241 @@
+<header class="mb-5 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="dp-page-title">Users & roles</h1>
+    <p class="dp-page-sub">Who can sign in to the portal and what their role lets them do.</p>
+  </div>
+  @if (canManage()) {
+    <button type="button" class="btn-primary" (click)="openCreate()">
+      <mat-icon>person_add</mat-icon>
+      Add user
+    </button>
+  }
+</header>
+
+@if (loadError()) {
+  <div class="dp-card dp-empty text-red-700">{{ loadError() }}</div>
+} @else {
+  <div class="dp-table-wrap">
+    <table class="dp-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Sign-in</th>
+          <th>Role</th>
+          <th>Security</th>
+          <th>Last sign-in</th>
+          @if (canManage()) {
+            <th class="text-right">Manage</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users(); track user.id) {
+          <tr [class.opacity-60]="!user.isActive">
+            <td>
+              <div class="font-semibold text-slate-900">
+                {{ user.fullName }}
+                @if (user.id === myId()) {
+                  <span class="font-normal text-slate-500">(you)</span>
+                }
+              </div>
+              @if (!user.isActive) {
+                <span class="dp-badge dp-badge--slate mt-1">Deactivated</span>
+              }
+            </td>
+            <td>
+              <div>{{ user.email }}</div>
+              <div class="mt-0.5 text-xs text-slate-500">{{ user.phone ? '+' + user.phone : 'No phone' }}</div>
+            </td>
+            <td><span class="dp-badge dp-badge--blue">{{ user.roleLabel }}</span></td>
+            <td>
+              <div class="flex flex-wrap gap-1">
+                @if (user.twoFactorEnabled) {
+                  <span class="dp-badge dp-badge--green">Two-step on</span>
+                } @else {
+                  <span class="dp-badge dp-badge--slate">Two-step off</span>
+                }
+                @if (user.locked) {
+                  <span class="dp-badge dp-badge--red">Locked</span>
+                }
+                @if (user.mustChangePassword) {
+                  <span class="dp-badge dp-badge--amber">Temporary password</span>
+                }
+              </div>
+            </td>
+            <td class="whitespace-nowrap">
+              {{ user.lastLoginAt ? (user.lastLoginAt | date: 'd MMM y, HH:mm') : 'Never' }}
+            </td>
+            @if (canManage()) {
+              <td class="text-right">
+                <button type="button" class="btn-secondary btn-sm" [matMenuTriggerFor]="menu" [attr.aria-label]="'Manage ' + user.fullName">
+                  Manage
+                  <mat-icon>expand_more</mat-icon>
+                </button>
+                <mat-menu #menu="matMenu" xPosition="before">
+                  <button mat-menu-item type="button" (click)="openEdit(user)">Edit details & role</button>
+                  @if (user.id !== myId()) {
+                    <button mat-menu-item type="button" (click)="askConfirm(user, 'reset-password')">
+                      Issue temporary password
+                    </button>
+                    @if (user.twoFactorEnabled) {
+                      <button mat-menu-item type="button" (click)="askConfirm(user, 'reset-2fa')">
+                        Turn off two-step verification
+                      </button>
+                    }
+                  }
+                  @if (user.locked) {
+                    <button mat-menu-item type="button" (click)="unlock(user)">Unlock account</button>
+                  }
+                </mat-menu>
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="canManage() ? 6 : 5" class="dp-empty">{{ loading() ? 'Loading…' : 'No users.' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (roles().length) {
+  <section class="mt-8">
+    <h2 class="text-sm font-bold text-slate-900">What each role can do</h2>
+    <p class="mt-1 text-sm text-slate-500">Access is set per role. The same rules are enforced on the server for the web and mobile apps.</p>
+    <div class="dp-table-wrap mt-3">
+      <table class="dp-table">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            @for (role of roles(); track role.role) {
+              <th class="text-center">
+                {{ role.label }}
+                <div class="font-normal normal-case tracking-normal text-slate-400">{{ role.app }}</div>
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (permission of allPermissions; track permission) {
+            <tr>
+              <td class="!py-2">{{ permissionLabels[permission] }}</td>
+              @for (role of roles(); track role.role) {
+                <td class="!py-2 text-center">
+                  @if (roleHas(role, permission)) {
+                    <mat-icon class="!h-5 !w-5 !text-[1.25rem] text-emerald-600" aria-label="Yes">check</mat-icon>
+                  } @else {
+                    <span class="text-slate-300" aria-label="No">—</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+@if (form(); as f) {
+  <dp-modal [title]="f.id ? 'Edit user' : 'Add user'" (closed)="closeForm()">
+    <form class="space-y-4" (ngSubmit)="save()">
+      <div>
+        <label class="dp-label" for="u-name">Full name</label>
+        <input id="u-name" class="dp-input" name="fullName" [ngModel]="f.fullName" (ngModelChange)="patchForm({ fullName: $event })" autocomplete="off" required />
+      </div>
+      <div>
+        <label class="dp-label" for="u-email">Email</label>
+        <input id="u-email" class="dp-input" type="email" name="email" [ngModel]="f.email" (ngModelChange)="patchForm({ email: $event })" autocomplete="off" required />
+      </div>
+      <div>
+        <label class="dp-label" for="u-phone">Phone (optional — can be used to sign in)</label>
+        <input id="u-phone" class="dp-input" type="tel" name="phone" [ngModel]="f.phone" (ngModelChange)="patchForm({ phone: $event })" placeholder="0712 345 678" autocomplete="off" />
+      </div>
+
+      @if (f.id === myId()) {
+        <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          You cannot change your own role or deactivate yourself — another owner has to do that.
+        </p>
+      } @else {
+        <div>
+          <label class="dp-label" for="u-role">Role</label>
+          <select id="u-role" class="dp-input" name="role" [ngModel]="f.role" (ngModelChange)="patchForm({ role: $event })">
+            @for (role of roles(); track role.role) {
+              <option [value]="role.role">{{ role.label }} ({{ role.app }})</option>
+            }
+          </select>
+          @if (selectedRole(); as role) {
+            <p class="mt-1.5 text-xs text-slate-600">{{ role.description }}</p>
+          }
+        </div>
+        @if (f.id) {
+          <label class="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300 accent-[#0f7a8a]" name="isActive" [ngModel]="f.isActive" (ngModelChange)="patchForm({ isActive: $event })" />
+            Can sign in
+            <span class="text-slate-500">— untick to deactivate; they are signed out immediately</span>
+          </label>
+        }
+      }
+
+      @if (!f.id) {
+        <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          A temporary password is generated for you to pass on. They choose their own at first sign-in.
+        </p>
+      }
+
+      @if (formError()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError() }}</p>
+      }
+
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeForm()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : f.id ? 'Save changes' : 'Add user' }}
+        </button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (confirm(); as c) {
+  <dp-modal
+    [title]="c.kind === 'reset-password' ? 'Issue a temporary password?' : 'Turn off two-step verification?'"
+    (closed)="confirm.set(null)"
+  >
+    <p class="text-sm text-slate-700">
+      @if (c.kind === 'reset-password') {
+        <strong>{{ c.user.fullName }}</strong>’s current password stops working and they are signed out everywhere.
+        You get a temporary password to give them.
+      } @else {
+        <strong>{{ c.user.fullName }}</strong> will sign in with only a password until they set two-step verification up again.
+        Do this only if they have lost their phone or codes.
+      }
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" class="btn-secondary" [disabled]="saving()" (click)="confirm.set(null)">Cancel</button>
+      <button type="button" class="btn-danger" [disabled]="saving()" (click)="runConfirmed()">
+        {{ c.kind === 'reset-password' ? 'Issue temporary password' : 'Turn off two-step' }}
+      </button>
+    </div>
+  </dp-modal>
+}
+
+@if (issued(); as i) {
+  <dp-modal title="Temporary password" (closed)="issued.set(null)">
+    <p class="text-sm text-slate-700">
+      Give this to <strong>{{ i.name }}</strong> ({{ i.email }}). It is shown only once and must be replaced at first sign-in.
+    </p>
+    <div class="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <code class="flex-1 select-all break-all font-mono text-base font-bold text-slate-900">{{ i.password }}</code>
+      <button type="button" class="btn-secondary btn-sm" (click)="copyPassword()">
+        <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+        {{ copied() ? 'Copied' : 'Copy' }}
+      </button>
+    </div>
+    <div class="mt-5 flex justify-end">
+      <button type="button" class="btn-primary" (click)="issued.set(null)">Done</button>
+    </div>
+  </dp-modal>
+}

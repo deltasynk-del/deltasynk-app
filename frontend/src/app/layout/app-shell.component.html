@@ -1,0 +1,77 @@
+<div class="shell">
+  <aside class="shell__sidebar" [class.shell__sidebar--open]="menuOpen()">
+    <div class="shell__brand">
+      <div class="shell__logo" aria-hidden="true">Δ</div>
+      <div class="min-w-0 flex-1">
+        <div class="shell__brand-name">DeltaSynk</div>
+        <div class="shell__brand-sub">Operations Portal</div>
+      </div>
+      <button
+        type="button"
+        class="shell__menu-btn"
+        [attr.aria-expanded]="menuOpen()"
+        aria-label="Menu"
+        (click)="menuOpen.set(!menuOpen())"
+      >
+        <mat-icon>{{ menuOpen() ? 'close' : 'menu' }}</mat-icon>
+      </button>
+    </div>
+
+    <div class="shell__collapsible">
+      @if (user(); as u) {
+        <a routerLink="/account" class="shell__user">
+          <div class="shell__avatar" aria-hidden="true">{{ u.fullName.charAt(0).toUpperCase() }}</div>
+          <div class="min-w-0">
+            <div class="shell__user-name">{{ u.fullName }}</div>
+            <div class="shell__user-role">{{ roleLabel() }}</div>
+          </div>
+        </a>
+      }
+
+      <nav class="shell__nav" aria-label="Main navigation">
+        @for (section of navSections(); track section.title) {
+          @if (section.title) {
+            <div class="shell__nav-header">{{ section.title }}</div>
+          }
+          @for (item of section.items; track item.route) {
+            <a class="shell__nav-item" [routerLink]="item.route" routerLinkActive="shell__nav-item--active">
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+              @if (item.badge && counts.count(item.badge) > 0) {
+                <span class="shell__nav-badge" [attr.aria-label]="counts.count(item.badge) + ' waiting'">
+                  {{ counts.count(item.badge) }}
+                </span>
+              }
+            </a>
+          }
+        }
+      </nav>
+
+      <div class="shell__footer">
+        <a class="shell__nav-item" routerLink="/account" routerLinkActive="shell__nav-item--active">
+          <mat-icon>shield_person</mat-icon>
+          <span>My account & security</span>
+        </a>
+        <button type="button" class="shell__nav-item shell__signout" (click)="signOut()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="shell__content">
+    @if (user(); as u) {
+      @if (!u.twoFactorEnabled) {
+        <div class="shell__notice" role="status">
+          <mat-icon>gpp_maybe</mat-icon>
+          <span>Two-step verification is off for your account. Turn it on to protect approvals made in your name.</span>
+          <a routerLink="/account" fragment="two-step" class="font-bold underline">Set up</a>
+        </div>
+      }
+    }
+    <div class="shell__page">
+      <router-outlet />
+    </div>
+  </main>
+</div>

@@ -1,0 +1,179 @@
+<header class="mb-5">
+  <h1 class="dp-page-title">Connected apps</h1>
+  <p class="dp-page-sub">
+    The systems that send sender ID requests and payments to this portal. Each one proves who it is with its own key.
+  </p>
+</header>
+
+@if (loadError()) {
+  <div class="dp-card dp-empty text-red-700">{{ loadError() }}</div>
+} @else if (loading()) {
+  <div class="dp-card dp-empty">Loading…</div>
+} @else {
+  <div class="grid gap-4 lg:grid-cols-3">
+    @for (app of apps(); track app.code) {
+      <section class="dp-card flex flex-col p-5">
+        <div class="flex items-start justify-between gap-3">
+          <h2 class="text-base font-bold text-slate-900">{{ app.name }}</h2>
+          @if (!app.isActive) {
+            <span class="dp-badge dp-badge--red">Blocked</span>
+          } @else if (app.lastSeenAt) {
+            <span class="dp-badge dp-badge--green">Connected</span>
+          } @else {
+            <span class="dp-badge dp-badge--slate">Not connected yet</span>
+          }
+        </div>
+        <p class="mt-1 text-xs text-slate-500">
+          {{ app.lastSeenAt ? 'Last heard from ' + (app.lastSeenAt | date: 'd MMM y, HH:mm') : 'Has never called the portal' }}
+        </p>
+
+        <dl class="mt-4 space-y-3 text-sm">
+          <div>
+            <dt class="text-xs font-semibold text-slate-500">Portal key (app → portal)</dt>
+            <dd class="mt-0.5">
+              @if (app.inboundKeyHint) {
+                <code class="font-mono text-xs text-slate-900">{{ app.inboundKeyHint }}</code>
+                <span class="text-xs text-slate-500"> · set {{ app.inboundKeySetAt | date: 'd MMM y' }}</span>
+              } @else {
+                <span class="text-slate-500">No key yet — the app cannot send anything.</span>
+              }
+            </dd>
+          </div>
+          @if (app.supportsCallback) {
+            <div>
+              <dt class="text-xs font-semibold text-slate-500">Send decisions back (portal → app)</dt>
+              <dd class="mt-0.5">
+                @if (app.callbackBaseUrl && app.callbackKeySet) {
+                  <span class="break-all font-mono text-xs text-slate-900">{{ app.callbackBaseUrl }}</span>
+                } @else {
+                  <span class="text-slate-500">Not set — {{ app.name }} learns of a decision when it next checks.</span>
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+
+        @if (canManage()) {
+          <div class="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+            <button type="button" class="btn-secondary btn-sm" (click)="confirmRotate.set(app)">
+              <mat-icon>key</mat-icon>
+              {{ app.inboundKeyHint ? 'New key' : 'Generate key' }}
+            </button>
+            @if (app.supportsCallback) {
+              <button type="button" class="btn-secondary btn-sm" (click)="openCallback(app)">
+                <mat-icon>settings_ethernet</mat-icon>
+                Connection
+              </button>
+            }
+            <button type="button" [class]="app.isActive ? 'btn-danger btn-sm' : 'btn-secondary btn-sm'" (click)="toggleActive(app)">
+              {{ app.isActive ? 'Block' : 'Unblock' }}
+            </button>
+          </div>
+        }
+      </section>
+    }
+  </div>
+
+  <section class="dp-card mt-6 p-5">
+    <h2 class="text-sm font-bold text-slate-900">How an app sends requests</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Each app calls the portal with its key in the <code class="font-mono text-xs">x-portal-api-key</code> header.
+      Sending the same id or reference again updates the request; a request staff already decided is never reopened.
+    </p>
+    <div class="dp-table-wrap mt-3">
+      <table class="dp-table">
+        <thead>
+          <tr>
+            <th>Call</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="whitespace-nowrap font-mono text-xs">POST {{ ingestUrl }}/sender-ids</td>
+            <td>A school or shop asked for a sender ID.</td>
+          </tr>
+          <tr>
+            <td class="whitespace-nowrap font-mono text-xs">GET {{ ingestUrl }}/sender-ids/:externalId</td>
+            <td>Read the decision (PENDING, APPROVED or REJECTED with the reason).</td>
+          </tr>
+          <tr>
+            <td class="whitespace-nowrap font-mono text-xs">POST {{ ingestUrl }}/payments</td>
+            <td>
+              A subscription payment or SMS top-up
+              (<code class="font-mono text-xs">kind</code>: SUBSCRIPTION or SMS_TOPUP;
+              <code class="font-mono text-xs">status</code>: SUBMITTED when the customer has given a payment reference to verify).
+            </td>
+          </tr>
+          <tr>
+            <td class="whitespace-nowrap font-mono text-xs">GET {{ ingestUrl }}/payments/:reference</td>
+            <td>Read the result — <code class="font-mono text-xs">canProceed</code> is true once staff verified it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+@if (confirmRotate(); as app) {
+  <dp-modal [title]="app.inboundKeyHint ? 'Replace the key for ' + app.name + '?' : 'Generate a key for ' + app.name + '?'" (closed)="confirmRotate.set(null)">
+    <p class="text-sm text-slate-700">
+      @if (app.inboundKeyHint) {
+        The current key stops working immediately. {{ app.name }} cannot send requests until the new key is saved in its settings.
+      } @else {
+        You will see the key once. Save it in {{ app.name }}’s server settings.
+      }
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" class="btn-secondary" [disabled]="saving()" (click)="confirmRotate.set(null)">Cancel</button>
+      <button type="button" [class]="app.inboundKeyHint ? 'btn-danger' : 'btn-primary'" [disabled]="saving()" (click)="rotate()">
+        {{ app.inboundKeyHint ? 'Replace key' : 'Generate key' }}
+      </button>
+    </div>
+  </dp-modal>
+}
+
+@if (issuedKey(); as issued) {
+  <dp-modal [title]="'Key for ' + issued.app" (closed)="issuedKey.set(null)">
+    <p class="text-sm text-slate-700">
+      Copy this now — it is not shown again. Treat it like a password: anyone holding it can send requests as {{ issued.app }}.
+    </p>
+    <div class="mt-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <code class="flex-1 select-all break-all font-mono text-xs font-bold text-slate-900">{{ issued.key }}</code>
+      <button type="button" class="btn-secondary btn-sm" (click)="copyKey()">
+        <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+        {{ copied() ? 'Copied' : 'Copy' }}
+      </button>
+    </div>
+    <div class="mt-5 flex justify-end">
+      <button type="button" class="btn-primary" (click)="issuedKey.set(null)">I have saved it</button>
+    </div>
+  </dp-modal>
+}
+
+@if (editing(); as app) {
+  <dp-modal [title]="'Connection to ' + app.name" (closed)="editing.set(null)">
+    <p class="text-sm text-slate-600">
+      With this set, an approved or rejected sender ID is pushed to {{ app.name }} straight away instead of waiting for it to check.
+    </p>
+    <form class="mt-4 space-y-4" (ngSubmit)="saveCallback()">
+      <div>
+        <label class="dp-label" for="cb-url">{{ app.name }} API address</label>
+        <input id="cb-url" class="dp-input font-mono" name="callbackBaseUrl" [(ngModel)]="callbackBaseUrl" placeholder="http://localhost:3020/api/v1" autocomplete="off" spellcheck="false" />
+        <p class="mt-1 text-xs text-slate-500">Leave empty to stop pushing decisions.</p>
+      </div>
+      <div>
+        <label class="dp-label" for="cb-key">{{ app.name }} platform key</label>
+        <input id="cb-key" class="dp-input font-mono" type="password" name="callbackKey" [(ngModel)]="callbackKey" [placeholder]="app.callbackKeySet ? 'Saved — leave blank to keep it' : ''" autocomplete="new-password" />
+        <p class="mt-1 text-xs text-slate-500">The platform key from {{ app.name }}’s own server settings. Stored encrypted.</p>
+      </div>
+      @if (formError()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ formError() }}</p>
+      }
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="editing.set(null)">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save connection' }}</button>
+      </div>
+    </form>
+  </dp-modal>
+}
