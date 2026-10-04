@@ -16,6 +16,7 @@ import { SenderIdsModule } from './sender-ids/sender-ids.module';
 import { SmsModule } from './sms/sms.module';
 import { UsersModule } from './users/users.module';
 import { WarrantyCardsModule } from './warranty-cards/warranty-cards.module';
+import { ProductLabelsModule } from './product-labels/product-labels.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { WarrantyCardsModule } from './warranty-cards/warranty-cards.module';
     PaymentsModule,
     DashboardModule,
     WarrantyCardsModule,
+    ProductLabelsModule,
   ],
   providers: [
     // Order matters: authenticate first, then check what the user may do.

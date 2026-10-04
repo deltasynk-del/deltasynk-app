@@ -14,6 +14,8 @@ export const Permission = {
   AUDIT_VIEW: 'audit.view',
   WARRANTY_CARDS_VIEW: 'warranty_cards.view',
   WARRANTY_CARDS_MANAGE: 'warranty_cards.manage',
+  PRODUCT_LABELS_VIEW: 'product_labels.view',
+  PRODUCT_LABELS_MANAGE: 'product_labels.manage',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -33,6 +35,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'audit.view': 'See the activity log',
   'warranty_cards.view': 'See warranty card packs',
   'warranty_cards.manage': 'Design, print and cancel warranty cards',
+  'product_labels.view': 'See product barcode labels',
+  'product_labels.manage': 'Create, print and cancel product barcode labels',
 };
 
 export const ROLE_LABELS: Record<string, string> = {

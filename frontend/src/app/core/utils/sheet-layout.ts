@@ -10,8 +10,10 @@ export interface CardSize {
   cardHeightMm: number;
   /** Blank border around the page. */
   pageMarginMm: number;
-  /** Space between cards. */
+  /** Space between cards side by side. */
   gapMm: number;
+  /** Space between rows; the same as gapMm when left out. */
+  rowGapMm?: number;
 }
 
 export type Flip = 'long' | 'short';
@@ -29,9 +31,11 @@ export interface SheetLayout {
 
 export function sheetLayout(size: CardSize): SheetLayout {
   const { cardWidthMm: w, cardHeightMm: h, pageMarginMm: margin, gapMm: gap } = size;
-  const fit = (page: number, card: number) => Math.max(0, Math.floor((page - 2 * margin + gap + 0.01) / (card + gap)));
-  const portrait = { cols: fit(A4.width, w), rows: fit(A4.height, h) };
-  const landscape = { cols: fit(A4.height, w), rows: fit(A4.width, h) };
+  const rowGap = size.rowGapMm ?? gap;
+  const fit = (page: number, card: number, space: number) =>
+    Math.max(0, Math.floor((page - 2 * margin + space + 0.01) / (card + space)));
+  const portrait = { cols: fit(A4.width, w, gap), rows: fit(A4.height, h, rowGap) };
+  const landscape = { cols: fit(A4.height, w, gap), rows: fit(A4.width, h, rowGap) };
   const useLandscape = landscape.cols * landscape.rows > portrait.cols * portrait.rows;
   const { cols, rows } = useLandscape ? landscape : portrait;
   const pageWidthMm = useLandscape ? A4.height : A4.width;
@@ -39,10 +43,10 @@ export function sheetLayout(size: CardSize): SheetLayout {
 
   // Centre the grid: the back of the paper then mirrors the front exactly.
   const left = (pageWidthMm - (cols * w + (cols - 1) * gap)) / 2;
-  const top = (pageHeightMm - (rows * h + (rows - 1) * gap)) / 2;
+  const top = (pageHeightMm - (rows * h + (rows - 1) * rowGap)) / 2;
   const slots: { x: number; y: number }[] = [];
   for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) slots.push({ x: left + c * (w + gap), y: top + r * (h + gap) });
+    for (let c = 0; c < cols; c += 1) slots.push({ x: left + c * (w + gap), y: top + r * (h + rowGap) });
   }
   return { orientation: useLandscape ? 'landscape' : 'portrait', pageWidthMm, pageHeightMm, cols, rows, perPage: cols * rows, slots };
 }

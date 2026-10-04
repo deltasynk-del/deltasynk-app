@@ -63,6 +63,14 @@ export const routes: Routes = [
         title: 'Warranty cards — DeltaSynk Portal',
       },
       {
+        path: 'product-labels',
+        canActivate: [permissionGuard],
+        data: { permission: Permission.PRODUCT_LABELS_VIEW },
+        loadComponent: () =>
+          import('./features/product-labels/product-labels.component').then((m) => m.ProductLabelsComponent),
+        title: 'Product labels — DeltaSynk Portal',
+      },
+      {
         path: 'users',
         canActivate: [permissionGuard],
         data: { permission: Permission.USERS_VIEW },
@@ -102,6 +110,15 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/warranty-cards/warranty-print.component').then((m) => m.WarrantyPrintComponent),
     title: 'Print warranty cards — DeltaSynk Portal',
+  },
+  {
+    // Outside the portal layout so only the labels reach the printer.
+    path: 'print/product-labels/:id',
+    canActivate: [authGuard, permissionGuard],
+    data: { permission: Permission.PRODUCT_LABELS_VIEW },
+    loadComponent: () =>
+      import('./features/product-labels/product-labels-print.component').then((m) => m.ProductLabelsPrintComponent),
+    title: 'Print product labels — DeltaSynk Portal',
   },
   { path: '**', redirectTo: '' },
 ];

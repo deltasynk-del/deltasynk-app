@@ -15,6 +15,8 @@ import { IngestPaymentDto, IngestSenderIdDto } from './dto/ingest.dto';
 import { IngestService } from './ingest.service';
 import { ClaimPackDto } from '../warranty-cards/dto/warranty-cards.dto';
 import { WarrantyCardsService } from '../warranty-cards/warranty-cards.service';
+import { ClaimLabelBatchDto } from '../product-labels/dto/product-labels.dto';
+import { ProductLabelsService } from '../product-labels/product-labels.service';
 
 /**
  * App-to-portal API. No staff login: each app authenticates with its own
@@ -28,6 +30,7 @@ export class IngestController {
   constructor(
     private readonly ingest: IngestService,
     private readonly warrantyCards: WarrantyCardsService,
+    private readonly productLabels: ProductLabelsService,
   ) {}
 
   @Post('sender-ids')
@@ -52,6 +55,13 @@ export class IngestController {
   @HttpCode(HttpStatus.OK)
   claimWarrantyPack(@Req() req: AppRequest, @Body() dto: ClaimPackDto) {
     return this.warrantyCards.claim(req.sourceApp.code, dto);
+  }
+
+  /** A shop owner entered a product label batch's claim code: returns its products and barcodes. */
+  @Post('product-labels/claim')
+  @HttpCode(HttpStatus.OK)
+  claimProductLabels(@Req() req: AppRequest, @Body() dto: ClaimLabelBatchDto) {
+    return this.productLabels.claim(req.sourceApp.code, dto);
   }
 
   @Get('payments/:reference')

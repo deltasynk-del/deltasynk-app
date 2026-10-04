@@ -337,3 +337,63 @@ model WarrantyStockCard {
   @@index([packId])
   @@map("warranty_stock_cards")
 }
+
+enum ProductLabelBatchStatus {
+  /// Printed, waiting for the shop to claim it.
+  AVAILABLE
+  /// The shop claimed it: its products were created in SynkMart.
+  CLAIMED
+  /// Withdrawn: can no longer be claimed.
+  VOID
+}
+
+/// Barcode labels printed for a shop's products. Staff type each product's name and how
+/// many labels it needs; every product gets its own barcode. The shop owner enters the
+/// batch's claim code in SynkMart and the products are created with those barcodes.
+model ProductLabelBatch {
+  id                String                  @id @default(uuid()) @db.Uuid
+  app               SourceApp               @default(SYNKMART)
+  /// What the shop types or scans to claim the batch, e.g. K7M2-9QPT.
+  code              String                  @unique
+  /// Staff note, e.g. the shop it is for.
+  name              String
+  labelWidthMm      Float                   @default(63.5) @map("label_width_mm")
+  labelHeightMm     Float                   @default(38.1) @map("label_height_mm")
+  /// Blank border around the page.
+  pageMarginMm      Float                   @default(0) @map("page_margin_mm")
+  /// Space between labels side by side.
+  gapMm             Float                   @default(2.5) @map("gap_mm")
+  /// Space between rows of labels.
+  rowGapMm          Float                   @default(0) @map("row_gap_mm")
+  status            ProductLabelBatchStatus @default(AVAILABLE)
+  claimedTenantRef  String?                 @map("claimed_tenant_ref")
+  claimedTenantName String?                 @map("claimed_tenant_name")
+  claimedAt         DateTime?               @map("claimed_at")
+  voidReason        String?                 @map("void_reason")
+  voidedAt          DateTime?               @map("voided_at")
+  createdById       String?                 @map("created_by") @db.Uuid
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  items ProductLabelItem[]
+
+  @@index([status, createdAt])
+  @@map("product_label_batches")
+}
+
+/// One product on a label batch: its name, its barcode (EAN-13) and how many labels to print.
+model ProductLabelItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  batchId   String   @map("batch_id") @db.Uuid
+  name      String
+  /// EAN-13 in the in-store range (starts with 29), unique across all batches.
+  barcode   String   @unique
+  copies    Int
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  batch ProductLabelBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, sortOrder])
+  @@map("product_label_items")
+}

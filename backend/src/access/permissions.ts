@@ -28,6 +28,9 @@ export const Permission = {
 
   WARRANTY_CARDS_VIEW: 'warranty_cards.view',
   WARRANTY_CARDS_MANAGE: 'warranty_cards.manage',
+
+  PRODUCT_LABELS_VIEW: 'product_labels.view',
+  PRODUCT_LABELS_MANAGE: 'product_labels.manage',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -52,6 +55,8 @@ export const ROLE_PERMISSIONS: Record<PortalRole, readonly Permission[]> = {
     Permission.AUDIT_VIEW,
     Permission.WARRANTY_CARDS_VIEW,
     Permission.WARRANTY_CARDS_MANAGE,
+    Permission.PRODUCT_LABELS_VIEW,
+    Permission.PRODUCT_LABELS_MANAGE,
   ],
 
   /** Sees the queues to answer customers; cannot approve or verify anything. */
@@ -61,6 +66,7 @@ export const ROLE_PERMISSIONS: Record<PortalRole, readonly Permission[]> = {
     Permission.SUBSCRIPTIONS_VIEW,
     Permission.TOPUPS_VIEW,
     Permission.WARRANTY_CARDS_VIEW,
+    Permission.PRODUCT_LABELS_VIEW,
   ],
 
   /** Mobile app. Follows sign-ups and renewals; no approvals. */

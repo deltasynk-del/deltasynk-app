@@ -1,6 +1,6 @@
 import { Component, ElementRef, effect, input, viewChild } from '@angular/core';
 
-/** Code 128 barcode drawn as SVG; scales to the size of its container. */
+/** Barcode drawn as SVG (Code 128, or EAN-13 for product labels); scales to the size of its container. */
 @Component({
   selector: 'dp-barcode-image',
   standalone: true,
@@ -9,19 +9,21 @@ import { Component, ElementRef, effect, input, viewChild } from '@angular/core';
 })
 export class BarcodeImageComponent {
   readonly value = input.required<string>();
+  readonly format = input<'CODE128' | 'EAN13'>('CODE128');
   private readonly svg = viewChild<ElementRef<SVGElement>>('svg');
 
   constructor() {
     effect(() => {
       const svg = this.svg()?.nativeElement;
       const value = this.value();
-      if (svg && value) void this.render(svg, value);
+      const format = this.format();
+      if (svg && value) void this.render(svg, value, format);
     });
   }
 
-  private async render(svg: SVGElement, value: string): Promise<void> {
+  private async render(svg: SVGElement, value: string, format: string): Promise<void> {
     const { default: JsBarcode } = await import('jsbarcode');
-    JsBarcode(svg, value, { format: 'CODE128', displayValue: false, margin: 0, width: 2, height: 60 });
+    JsBarcode(svg, value, { format, displayValue: false, margin: 0, width: 2, height: 60 });
     // JsBarcode sets a fixed pixel size; keep its viewBox and let CSS decide the size.
     const width = svg.getAttribute('width')?.replace('px', '');
     const height = svg.getAttribute('height')?.replace('px', '');

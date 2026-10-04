@@ -79,6 +79,7 @@ Each app gets its own key under **Connected apps** and sends it as
 | `GET /api/v1/ingest/sender-ids/:externalId` | Read the decision |
 | `POST /api/v1/ingest/payments` | A subscription payment or SMS top-up (`kind`, `status`) |
 | `GET /api/v1/ingest/payments/:reference` | Read the result (`canProceed`) |
+| `POST /api/v1/ingest/product-labels/claim` | A shop claims a product barcode label batch (`code`, `tenantRef`, `tenantName`); returns its products and barcodes |
 | `POST /api/v1/ingest/warranty-packs/claim` | A shop claims a printed warranty card pack (`code`, `tenantRef`, `tenantName`); returns its card numbers |
 
 Field lists are in `backend/src/ingest/dto/ingest.dto.ts`. Re-sending the same id

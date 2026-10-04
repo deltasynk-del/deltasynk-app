@@ -379,7 +379,14 @@ export class WarrantyCardsService {
     const tenantName = dto.tenantName.trim();
 
     const pack = await this.prisma.warrantyCardPack.findUnique({ where: { code } });
-    if (!pack || pack.app !== app) throw new NotFoundException('No pack has this code. Check the code on the pack label.');
+    if (!pack || pack.app !== app) {
+      const isLabelBatch = await this.prisma.productLabelBatch.findUnique({ where: { code }, select: { id: true } });
+      throw new NotFoundException(
+        isLabelBatch
+          ? 'This is a product label code. Add it under Products & stock instead.'
+          : 'No pack has this code. Check the code on the pack label.',
+      );
+    }
     if (pack.status === WarrantyPackStatus.VOID) {
       throw new ConflictException('This pack was cancelled by DeltaSynk. Contact DeltaSynk support.');
     }
@@ -515,9 +522,12 @@ export class WarrantyCardsService {
     const codes = new Set<string>();
     while (codes.size < count) {
       const code = generatePackCode();
-      if (!(await this.prisma.warrantyCardPack.findUnique({ where: { code }, select: { id: true } }))) {
-        codes.add(code);
-      }
+      // Unique across packs and product label batches, so one can't be mistaken for the other.
+      const [pack, labels] = await Promise.all([
+        this.prisma.warrantyCardPack.findUnique({ where: { code }, select: { id: true } }),
+        this.prisma.productLabelBatch.findUnique({ where: { code }, select: { id: true } }),
+      ]);
+      if (!pack && !labels && !codes.has(code)) codes.add(code);
     }
     return [...codes];
   }

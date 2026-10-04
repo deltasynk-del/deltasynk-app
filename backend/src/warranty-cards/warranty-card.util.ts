@@ -42,11 +42,17 @@ export interface SheetLayout {
  * How many cards of this size fit on A4, trying both orientations and keeping the one
  * that fits more (portrait on a tie). Same rule as the print page in the web app.
  */
-export function sheetLayout(widthMm: number, heightMm: number, marginMm: number, gapMm: number): SheetLayout {
-  const fit = (page: number, card: number) =>
-    Math.max(0, Math.floor((page - 2 * marginMm + gapMm + 0.01) / (card + gapMm)));
-  const portrait = { cols: fit(A4.width, widthMm), rows: fit(A4.height, heightMm) };
-  const landscape = { cols: fit(A4.height, widthMm), rows: fit(A4.width, heightMm) };
+export function sheetLayout(
+  widthMm: number,
+  heightMm: number,
+  marginMm: number,
+  gapMm: number,
+  rowGapMm = gapMm,
+): SheetLayout {
+  const fit = (page: number, card: number, space: number) =>
+    Math.max(0, Math.floor((page - 2 * marginMm + space + 0.01) / (card + space)));
+  const portrait = { cols: fit(A4.width, widthMm, gapMm), rows: fit(A4.height, heightMm, rowGapMm) };
+  const landscape = { cols: fit(A4.height, widthMm, gapMm), rows: fit(A4.width, heightMm, rowGapMm) };
   const p = portrait.cols * portrait.rows;
   const l = landscape.cols * landscape.rows;
   return l > p

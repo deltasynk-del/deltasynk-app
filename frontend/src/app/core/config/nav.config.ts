@@ -33,6 +33,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Products',
     items: [
       { label: 'Warranty cards', icon: 'verified', route: '/warranty-cards', permission: Permission.WARRANTY_CARDS_VIEW },
+      { label: 'Product labels', icon: 'qr_code_2', route: '/product-labels', permission: Permission.PRODUCT_LABELS_VIEW },
     ],
   },
   {
