@@ -8,7 +8,7 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api/v1');
   // Behind a reverse proxy, so req.ip (used in the audit trail) is the real client.
-  app.set('trust proxy', 'loopback');
+  app.set('trust proxy', 1);
   app.enableCors({
     origin: (process.env.CORS_ORIGIN ?? 'http://localhost:4220')
       .split(',')
