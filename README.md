@@ -48,11 +48,13 @@ for **https://portal.deltasynk.com**. Before starting it:
   server is not reachable over IPv6, remove any AAAA record for the domain.
 2. Allow inbound TCP ports 80 and 443 through the server firewall. UDP 443 is
   optional and enables HTTP/3.
-3. Copy `.env.production.example` to `.env.production` and replace every
-  placeholder. Keep the file private; it is ignored by Git. Use unique,
-  randomly generated database, JWT, and encryption secrets. The database URL
-  must use the same database credentials, point to host `postgres`, and
-  percent-encode special characters in the password.
+3. Either copy `.env.production.example` to `.env.production` and replace every
+  placeholder, or enter the variables in your hosting provider's environment
+  settings. Keep local env files private; they are ignored by Git. Use unique,
+  randomly generated database, JWT, and encryption secrets for each
+  environment. The database URL must use the same database credentials, point
+  to host `postgres` on the Compose network, and percent-encode special
+  characters in the password.
 4. Configure working SMTP credentials. Password reset and email verification
   require SMTP; production responses never expose development links or codes.
 5. Start the services and create the first owner:
