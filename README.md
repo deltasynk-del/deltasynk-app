@@ -40,34 +40,35 @@ npm start
 
 ## Deploy online
 
-The production Compose stack builds the API and web app, keeps PostgreSQL on a
-private Docker network, and uses Caddy to obtain and renew HTTPS certificates
-for **https://portal.deltasynk.com**. Before starting it:
+The production Compose stack builds the API and web app and keeps PostgreSQL on
+a private Docker network. Coolify's proxy provides public routing and HTTPS;
+Nginx in the frontend container forwards `/api/` requests to the backend. Before
+deploying it:
 
 1. Point the domain's DNS A record at the server's public IPv4 address. If the
   server is not reachable over IPv6, remove any AAAA record for the domain.
-2. Allow inbound TCP ports 80 and 443 through the server firewall. UDP 443 is
-  optional and enables HTTP/3.
-3. Either copy `.env.production.example` to `.env.production` and replace every
+2. Allow inbound TCP ports 80 and 443 through the server firewall.
+3. In Coolify, route **https://portal.deltasynk.com** to the frontend service on
+  internal port `80`; Coolify handles the TLS certificate.
+4. Either copy `.env.production.example` to `.env.production` and replace every
   placeholder, or enter the variables in your hosting provider's environment
   settings. Keep local env files private; they are ignored by Git. Use unique,
   randomly generated database, JWT, and encryption secrets for each
   environment. The database URL must use the same database credentials, point
   to host `postgres` on the Compose network, and percent-encode special
   characters in the password.
-4. Configure working SMTP credentials. Password reset and email verification
+5. Configure working SMTP credentials. Password reset and email verification
   require SMTP; production responses never expose development links or codes.
-5. Start the services and create the first owner:
+6. Deploy the Compose application and create the first owner:
 
   ```bash
-  docker compose --env-file .env.production up -d --build
-  docker compose --env-file .env.production exec backend npm run db:seed
+  docker compose exec backend npm run db:seed
   ```
 
 The app is served at `https://portal.deltasynk.com` and its API at
-`https://portal.deltasynk.com/api/v1`. Caddy needs the DNS record to resolve to
-the server before its first start so it can issue the TLS certificate. Database
-data and Caddy certificates persist in named Docker volumes.
+`https://portal.deltasynk.com/api/v1`. The DNS record must resolve to the
+Coolify server before deployment. Database data persists in a named Docker
+volume.
 
 Sign in with `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`. The owner is asked to
 choose a new password straight away.
