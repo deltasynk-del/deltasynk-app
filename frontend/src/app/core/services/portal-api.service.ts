@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import {
   AuditEntry,
   ConnectedApp,
+  CreditShop,
   DashboardSummary,
   Page,
   PaymentRequest,
@@ -122,6 +123,15 @@ export class PortalApiService {
 
   unlockUser(id: string): Observable<PortalUser> {
     return this.http.post<PortalUser>(`${this.base}/users/${id}/unlock`, {});
+  }
+
+  // SMS credits given without a payment
+  creditShops(q: string): Observable<CreditShop[]> {
+    return this.http.get<CreditShop[]>(`${this.base}/sms-credits/shops`, { params: this.params({ q }) });
+  }
+
+  grantCredits(body: { shopId: string; units: number; note: string }): Observable<CreditShop> {
+    return this.http.post<CreditShop>(`${this.base}/sms-credits/grants`, body);
   }
 
   // Connected apps

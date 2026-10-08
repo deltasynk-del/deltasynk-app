@@ -1,6 +1,11 @@
-<header class="mb-5">
-  <h1 class="dp-page-title">{{ title }}</h1>
-  <p class="dp-page-sub">{{ intro }}</p>
+<header class="mb-5 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <h1 class="dp-page-title">{{ title }}</h1>
+    <p class="dp-page-sub">{{ intro }}</p>
+  </div>
+  @if (canGrant()) {
+    <button type="button" class="btn-primary" (click)="openGrant()">Add credits to a shop</button>
+  }
 </header>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -207,5 +212,73 @@
         </button>
       </div>
     </form>
+  </dp-modal>
+}
+
+@if (granting()) {
+  <dp-modal title="Add SMS credits to a shop" (closed)="closeGrant()">
+    @if (grantShop(); as shop) {
+      <dl class="grid grid-cols-[7.5rem_1fr] gap-y-2 text-sm">
+        <dt class="text-slate-500">Shop</dt>
+        <dd>
+          <span class="font-bold text-slate-900">{{ shop.name }}</span>
+          <span class="text-slate-500">({{ shop.slug }})</span>
+        </dd>
+        <dt class="text-slate-500">Balance now</dt>
+        <dd class="tabular-nums">{{ shop.smsBalance | number }} SMS</dd>
+      </dl>
+      <button type="button" class="mt-2 text-sm text-slate-600 underline" [disabled]="saving()" (click)="grantShop.set(null)">
+        Choose another shop
+      </button>
+
+      <p class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        These credits are added straight away without a payment. This cannot be undone here.
+      </p>
+
+      <form class="mt-4" (ngSubmit)="submitGrant()">
+        <label class="dp-label" for="grant-units">Credits to add</label>
+        <input id="grant-units" class="dp-input" type="number" name="units" min="1" max="100000" step="1" [(ngModel)]="grantUnits" />
+
+        <label class="dp-label mt-3" for="grant-note">Reason</label>
+        <textarea id="grant-note" class="dp-input" rows="2" name="note" maxlength="300" [(ngModel)]="grantNote" placeholder="e.g. Trial credits"></textarea>
+
+        @if (dialogError()) {
+          <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+        }
+
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeGrant()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Adding…' : 'Add credits' }}</button>
+        </div>
+      </form>
+    } @else {
+      <form class="flex gap-2" (ngSubmit)="searchShops()">
+        <input class="dp-input" type="search" name="shopSearch" [(ngModel)]="shopSearch" placeholder="Shop name, link name or phone" aria-label="Search SynkMart shops" />
+        <button type="submit" class="btn-secondary">Search</button>
+      </form>
+
+      @if (dialogError()) {
+        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      } @else if (shopsLoading()) {
+        <p class="mt-4 text-sm text-slate-500">Loading shops…</p>
+      } @else if (shops().length === 0) {
+        <p class="mt-4 text-sm text-slate-500">No SynkMart shop matches.</p>
+      } @else {
+        <ul class="mt-3 divide-y divide-slate-100">
+          @for (shop of shops(); track shop.id) {
+            <li>
+              <button type="button" class="flex w-full items-center justify-between gap-3 px-1 py-2 text-left text-sm hover:bg-slate-50" (click)="grantShop.set(shop)">
+                <span>
+                  <span class="font-semibold text-slate-900">{{ shop.name }}</span>
+                  <span class="text-slate-500">· {{ shop.slug }}</span>
+                </span>
+                <span class="tabular-nums text-slate-600">{{ shop.smsBalance | number }} SMS</span>
+              </button>
+            </li>
+          }
+        </ul>
+        <p class="mt-2 text-xs text-slate-500">Showing up to 20 shops. Search to narrow the list.</p>
+      }
+    }
   </dp-modal>
 }

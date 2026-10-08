@@ -129,3 +129,12 @@ export interface DashboardSummary {
     | { id: string; actorLabel: string | null; action: string; summary: string; createdAt: string }[]
     | null;
 }
+
+/** A SynkMart shop, as listed when staff add SMS credits to it. */
+export interface CreditShop {
+  id: string;
+  name: string;
+  slug: string;
+  phone: string | null;
+  smsBalance: number;
+}

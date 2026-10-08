@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute } from '@angular/router';
 import { APP_LABELS, Permission } from '../../core/config/permissions';
-import { PaymentRequest, PaymentStatus } from '../../core/models/portal.models';
+import { CreditShop, PaymentRequest, PaymentStatus } from '../../core/models/portal.models';
 import { apiErrorMessage } from '../../core/services/api-error.util';
 import { AuthService } from '../../core/services/auth.service';
 import { PaymentRoute, PortalApiService } from '../../core/services/portal-api.service';
@@ -56,6 +56,9 @@ export class PaymentsComponent implements OnInit {
     this.auth.can(this.route.snapshot.data['verifyPermission'] as Permission),
   );
 
+  /** Adding credits without a payment: SMS top-ups page only, for roles allowed to. */
+  readonly canGrant = computed(() => this.isTopUps && this.auth.can(Permission.TOPUPS_GRANT));
+
   readonly tab = signal<Tab>('SUBMITTED');
   readonly rows = signal<PaymentRequest[]>([]);
   readonly tabCounts = signal<Record<string, number>>({});
@@ -72,8 +75,77 @@ export class PaymentsComponent implements OnInit {
   readonly dialogError = signal<string | null>(null);
   note = '';
 
+  readonly granting = signal(false);
+  readonly shops = signal<CreditShop[]>([]);
+  readonly shopsLoading = signal(false);
+  readonly grantShop = signal<CreditShop | null>(null);
+  shopSearch = '';
+  grantUnits: number | null = 10;
+  grantNote = '';
+
   ngOnInit(): void {
     this.load();
+  }
+
+  openGrant(): void {
+    this.shopSearch = '';
+    this.grantUnits = 10;
+    this.grantNote = '';
+    this.grantShop.set(null);
+    this.dialogError.set(null);
+    this.granting.set(true);
+    this.searchShops();
+  }
+
+  closeGrant(): void {
+    if (!this.saving()) this.granting.set(false);
+  }
+
+  searchShops(): void {
+    this.shopsLoading.set(true);
+    this.dialogError.set(null);
+    this.api.creditShops(this.shopSearch.trim()).subscribe({
+      next: (shops) => {
+        this.shops.set(shops);
+        this.shopsLoading.set(false);
+      },
+      error: (err: unknown) => {
+        this.shops.set([]);
+        this.shopsLoading.set(false);
+        this.dialogError.set(apiErrorMessage(err, 'Could not load shops from SynkMart.'));
+      },
+    });
+  }
+
+  submitGrant(): void {
+    const shop = this.grantShop();
+    const units = Number(this.grantUnits);
+    const note = this.grantNote.trim();
+    if (!shop) return;
+    if (!Number.isInteger(units) || units < 1 || units > 100000) {
+      this.dialogError.set('Enter a whole number of credits between 1 and 100,000.');
+      return;
+    }
+    if (note.length < 3) {
+      this.dialogError.set('Say why the credits are being given — it goes in the activity log.');
+      return;
+    }
+
+    this.saving.set(true);
+    this.dialogError.set(null);
+    this.api.grantCredits({ shopId: shop.id, units, note }).subscribe({
+      next: (updated) => {
+        this.saving.set(false);
+        this.granting.set(false);
+        this.toast.success(
+          `${units.toLocaleString('en-US')} credits added to ${updated.name}. New balance: ${updated.smsBalance.toLocaleString('en-US')}.`,
+        );
+      },
+      error: (err: unknown) => {
+        this.saving.set(false);
+        this.dialogError.set(apiErrorMessage(err, 'Could not add the credits.'));
+      },
+    });
   }
 
   methodLabel(method: string): string {

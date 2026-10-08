@@ -17,6 +17,8 @@ export const Permission = {
 
   TOPUPS_VIEW: 'topups.view',
   TOPUPS_VERIFY: 'topups.verify',
+  /** Give a shop SMS credits without a payment. Owners only, unless added to a role below. */
+  TOPUPS_GRANT: 'topups.grant',
 
   USERS_VIEW: 'users.view',
   USERS_MANAGE: 'users.manage',

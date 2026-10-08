@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConnectedApp, SourceApp } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
@@ -167,6 +173,53 @@ export class AppsService {
         error: `Could not reach ${app.name}: ${message}`.slice(0, 500),
       };
     }
+  }
+
+  /**
+   * Calls an app's platform API (the address and key under Connected apps → Connection)
+   * and returns its answer. Throws with a message staff can act on.
+   */
+  async callPlatform<T>(
+    code: SourceApp,
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    const spec = SENDER_ID_CALLBACKS[code];
+    const app = await this.findOrThrow(code);
+    if (!spec || !app.callbackBaseUrl || !app.callbackKeyEnc) {
+      throw new BadRequestException(
+        `Set ${app.name}'s API address and platform key under Connected apps → Connection first.`,
+      );
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${app.callbackBaseUrl}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          [spec.keyHeader]: decryptSecret(app.callbackKeyEnc),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(CALLBACK_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Could not reach ${app.name}: ${message}`);
+      throw new BadGatewayException(`Could not reach ${app.name}: ${message}`.slice(0, 500));
+    }
+
+    const payload = (await response.json().catch(() => null)) as
+      | (T & { message?: string | string[] })
+      | null;
+    if (!response.ok || payload === null) {
+      const detail = Array.isArray(payload?.message) ? payload.message.join(', ') : (payload?.message ?? '');
+      throw new BadGatewayException(
+        `${app.name} answered ${response.status}${detail ? `: ${detail}` : ''}`.slice(0, 500),
+      );
+    }
+    return payload;
   }
 
   private async findOrThrow(code: SourceApp): Promise<ConnectedApp> {
