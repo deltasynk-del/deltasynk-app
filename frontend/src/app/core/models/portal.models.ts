@@ -138,3 +138,121 @@ export interface CreditShop {
   phone: string | null;
   smsBalance: number;
 }
+
+/** The products with pricing on deltasynk.com. */
+export const WEBSITE_SERVICES = [
+  { value: 'SYNKMART', label: 'SynkMart' },
+  { value: 'QUALITYSCHOOL', label: 'QualitySchool' },
+  { value: 'MEDICALSYNK', label: 'MedicalSynk' },
+  { value: 'HOTEL', label: 'Hotel Synk' },
+] as const;
+
+/** A pricing card on a product page of the website. */
+export interface WebsitePlan {
+  id: string;
+  service: string;
+  planName: string;
+  planCode: string | null;
+  duration: string;
+  amount: number | null;
+  currency: string;
+  description: string | null;
+  status: 'ACTIVE' | 'INACTIVE';
+  minStudents: number | null;
+  maxStudents: number | null;
+  sortOrder: number;
+  isPopular: boolean;
+  features: string[];
+  updatedAt: string;
+}
+
+/** A piece of equipment offered next to a product's plans. */
+export interface WebsiteAddon {
+  id: string;
+  service: string;
+  addonCode: string;
+  name: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  imageUrl: string | null;
+  freeFromMonths: number;
+  ownershipMonths: number;
+  sortOrder: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  updatedAt: string;
+}
+
+export type HardwareStatus = 'REQUESTED' | 'ISSUED' | 'RETURNED' | 'CANCELLED';
+
+/** One piece of equipment a customer asked for at sign-up. */
+export interface HardwareItem {
+  id: string;
+  registrationReference: string;
+  service: string;
+  shopSlug?: string;
+  addonCode: string;
+  addonName: string;
+  acquisition: 'PURCHASED' | 'INCLUDED';
+  amount: number;
+  currency: string;
+  status: HardwareStatus;
+  serialNumber?: string;
+  issuedAt?: string;
+  ownershipTransfersAt?: string;
+  returnedAt?: string;
+  notes?: string;
+  ownedByCustomer: boolean;
+  customer: {
+    payerName: string | null;
+    payerPhone: string | null;
+    payerEmail: string | null;
+    planCode: string;
+    billingCycle: string;
+    paymentStatus: string;
+    requestedAt: string;
+  } | null;
+}
+
+export interface IncomeMonth {
+  /** yyyy-mm */
+  month: string;
+  subscriptions: number;
+  subscriptionCount: number;
+  topUps: number;
+  topUpCount: number;
+}
+
+/** Figures from a connected app; `error` says why they are missing. */
+export interface Remote<T> {
+  data: T | null;
+  error: string | null;
+}
+
+export interface DashboardInsights {
+  income: {
+    currency: string;
+    thisMonth: IncomeMonth;
+    lastMonth: IncomeMonth;
+    last12Months: { subscriptions: number; topUps: number };
+    allTime: {
+      subscriptions: { amount: number; payments: number };
+      topUps: { amount: number; payments: number };
+    };
+    months: IncomeMonth[];
+    byApp: { app: string; subscriptions: number; topUps: number }[];
+    byPlan: { app: string; planCode: string; billingCycle: string; payments: number; amount: number }[];
+  } | null;
+  subscribers: Remote<{
+    total: number;
+    byStatus: Partial<Record<string, number>>;
+    activeByPlan: { planCode: string; billingCycle: string; count: number }[];
+    endingSoon: { name: string; slug: string; phone: string | null; planCode: string; paidUntil: string | null }[];
+  }> | null;
+  website: Remote<{
+    plans: { active: number; hidden: number };
+    addons: { active: number; hidden: number };
+    hardware: { byStatus: Partial<Record<string, number>>; purchasedValue: number; includedValue: number };
+    registrations: Record<string, number>;
+  }> | null;
+}

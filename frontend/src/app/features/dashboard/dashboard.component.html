@@ -1,9 +1,9 @@
 <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
   <div>
     <h1 class="dp-page-title">Hello, {{ firstName() }}</h1>
-    <p class="dp-page-sub">What is waiting for a decision across the DeltaSynk apps.</p>
+    <p class="dp-page-sub">What is waiting for a decision, and how the DeltaSynk products are doing.</p>
   </div>
-  <button type="button" class="btn-secondary btn-sm" [disabled]="counts.loading()" (click)="counts.refresh()">
+  <button type="button" class="btn-secondary btn-sm" [disabled]="counts.loading()" (click)="refresh()">
     <mat-icon>refresh</mat-icon>
     Refresh
   </button>
@@ -56,6 +56,228 @@
       </a>
     }
   </div>
+
+  @if (insightsFailed()) {
+    <p class="dp-card dp-empty mt-8">Could not load income and subscriber figures. Refresh to try again.</p>
+  }
+
+  @if (insights()?.income; as income) {
+    <section class="mt-8">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-slate-900">Income</h2>
+        <p class="text-xs text-slate-500">Payments verified here or confirmed by the payment gateway · {{ income.currency }}</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="dp-card p-5">
+          <p class="text-sm font-semibold text-slate-600">Subscriptions this month</p>
+          <p class="mt-2 text-2xl font-extrabold tabular-nums text-slate-900">{{ income.thisMonth.subscriptions | number }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ income.thisMonth.subscriptionCount }} payment{{ income.thisMonth.subscriptionCount === 1 ? '' : 's' }}
+            @if (change(income.thisMonth.subscriptions, income.lastMonth.subscriptions); as delta) {
+              · {{ delta }}
+            }
+          </p>
+        </div>
+        <div class="dp-card p-5">
+          <p class="text-sm font-semibold text-slate-600">SMS top-ups this month</p>
+          <p class="mt-2 text-2xl font-extrabold tabular-nums text-slate-900">{{ income.thisMonth.topUps | number }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ income.thisMonth.topUpCount }} payment{{ income.thisMonth.topUpCount === 1 ? '' : 's' }}
+            @if (change(income.thisMonth.topUps, income.lastMonth.topUps); as delta) {
+              · {{ delta }}
+            }
+          </p>
+        </div>
+        <div class="dp-card p-5">
+          <p class="text-sm font-semibold text-slate-600">Last 12 months</p>
+          <p class="mt-2 text-2xl font-extrabold tabular-nums text-slate-900">{{ income.last12Months.subscriptions + income.last12Months.topUps | number }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            Subscriptions {{ income.last12Months.subscriptions | number }} · top-ups {{ income.last12Months.topUps | number }}
+          </p>
+        </div>
+        <div class="dp-card p-5">
+          <p class="text-sm font-semibold text-slate-600">Since the start</p>
+          <p class="mt-2 text-2xl font-extrabold tabular-nums text-slate-900">{{ income.allTime.subscriptions.amount + income.allTime.topUps.amount | number }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ income.allTime.subscriptions.payments }} subscription and {{ income.allTime.topUps.payments }} top-up payments
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-4 xl:grid-cols-2">
+        <div class="dp-table-wrap">
+          <table class="dp-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th class="text-right">Subscriptions</th>
+                <th class="text-right">SMS top-ups</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (month of incomeMonths(); track month.month) {
+                <tr>
+                  <td>{{ monthDate(month.month) | date: 'MMM y' }}</td>
+                  <td class="text-right tabular-nums">
+                    {{ month.subscriptions | number }}
+                    <span class="text-xs text-slate-400">({{ month.subscriptionCount }})</span>
+                  </td>
+                  <td class="text-right tabular-nums">
+                    {{ month.topUps | number }}
+                    <span class="text-xs text-slate-400">({{ month.topUpCount }})</span>
+                  </td>
+                  <td class="text-right font-semibold tabular-nums text-slate-900">{{ total(month) | number }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="space-y-4">
+          <div class="dp-table-wrap">
+            <table class="dp-table">
+              <thead>
+                <tr>
+                  <th>Product · last 12 months</th>
+                  <th class="text-right">Subscriptions</th>
+                  <th class="text-right">SMS top-ups</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of income.byApp; track row.app) {
+                  <tr>
+                    <td>{{ appLabel(row.app) }}</td>
+                    <td class="text-right tabular-nums">{{ row.subscriptions | number }}</td>
+                    <td class="text-right tabular-nums">{{ row.topUps | number }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="3" class="dp-empty">No income recorded yet.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="dp-table-wrap">
+            <table class="dp-table">
+              <thead>
+                <tr>
+                  <th>Plan · last 12 months</th>
+                  <th class="text-right">Payments</th>
+                  <th class="text-right">Income</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of income.byPlan; track row.app + row.planCode + row.billingCycle) {
+                  <tr>
+                    <td>
+                      <span class="capitalize">{{ row.planCode.toLowerCase() }} {{ row.billingCycle.toLowerCase() }}</span>
+                      <span class="text-xs text-slate-500">· {{ appLabel(row.app) }}</span>
+                    </td>
+                    <td class="text-right tabular-nums">{{ row.payments }}</td>
+                    <td class="text-right tabular-nums">{{ row.amount | number }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="3" class="dp-empty">No subscription income recorded yet.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  @if (insights()?.subscribers; as subscribers) {
+    <section class="mt-8">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-bold text-slate-900">SynkMart shops</h2>
+        @if (subscribers.data; as data) {
+          <p class="text-xs text-slate-500">{{ data.total | number }} shops in total</p>
+        }
+      </div>
+      @if (subscribers.data; as data) {
+        <div class="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+          @for (status of subscriberStatuses; track status.key) {
+            <div class="dp-card p-4">
+              <p class="text-sm font-semibold text-slate-600">{{ status.label }}</p>
+              <p class="mt-1 text-2xl font-extrabold tabular-nums text-slate-900">{{ data.byStatus[status.key] ?? 0 | number }}</p>
+            </div>
+          }
+        </div>
+        <div class="mt-4 grid gap-4 xl:grid-cols-2">
+          <div class="dp-table-wrap">
+            <table class="dp-table">
+              <thead>
+                <tr><th>Paying shops by plan</th><th class="text-right">Shops</th></tr>
+              </thead>
+              <tbody>
+                @for (row of data.activeByPlan; track row.planCode + row.billingCycle) {
+                  <tr>
+                    <td class="capitalize">{{ row.planCode.toLowerCase() }} {{ row.billingCycle.toLowerCase() }}</td>
+                    <td class="text-right tabular-nums">{{ row.count | number }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="2" class="dp-empty">No paying shops yet.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="dp-table-wrap">
+            <table class="dp-table">
+              <thead>
+                <tr><th>Plan ends within 14 days</th><th>Plan</th><th class="text-right">Paid until</th></tr>
+              </thead>
+              <tbody>
+                @for (shop of data.endingSoon; track shop.slug) {
+                  <tr>
+                    <td>
+                      <p class="font-semibold text-slate-900">{{ shop.name }}</p>
+                      <p class="text-xs text-slate-500">{{ shop.phone || shop.slug }}</p>
+                    </td>
+                    <td class="capitalize">{{ shop.planCode.toLowerCase() }}</td>
+                    <td class="text-right">{{ shop.paidUntil | date: 'd MMM y' }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="3" class="dp-empty">No plan is about to end.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      } @else {
+        <p class="dp-card dp-empty">Could not read shops from SynkMart: {{ subscribers.error }}</p>
+      }
+    </section>
+  }
+
+  @if (insights()?.website; as website) {
+    <section class="mt-8">
+      <h2 class="mb-3 text-sm font-bold text-slate-900">Website and hardware</h2>
+      @if (website.data; as data) {
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <a routerLink="/website-plans" class="dp-card block p-4 transition hover:border-brand-600/50">
+            <p class="text-sm font-semibold text-slate-600">Plan cards on the website</p>
+            <p class="mt-1 text-2xl font-extrabold tabular-nums text-slate-900">{{ data.plans.active | number }}</p>
+            <p class="mt-1 text-xs text-slate-500">{{ data.plans.hidden }} hidden · {{ data.addons.active }} equipment items</p>
+          </a>
+          @for (status of hardwareStatuses; track status.key) {
+            <a routerLink="/hardware" class="dp-card block p-4 transition hover:border-brand-600/50">
+              <p class="text-sm font-semibold text-slate-600">Hardware {{ status.label.toLowerCase() }}</p>
+              <p class="mt-1 text-2xl font-extrabold tabular-nums" [class.text-amber-700]="status.key === 'REQUESTED' && (data.hardware.byStatus[status.key] ?? 0) > 0" [class.text-slate-900]="!(status.key === 'REQUESTED' && (data.hardware.byStatus[status.key] ?? 0) > 0)">
+                {{ data.hardware.byStatus[status.key] ?? 0 | number }}
+              </p>
+            </a>
+          }
+        </div>
+        <p class="mt-2 text-xs text-slate-500">
+          Hardware requested so far: TZS {{ data.hardware.purchasedValue | number }} bought,
+          TZS {{ data.hardware.includedValue | number }} included free with prepaid plans.
+        </p>
+      } @else {
+        <p class="dp-card dp-empty">Could not read the website: {{ website.error }}</p>
+      }
+    </section>
+  }
 
   @if (summary()?.recentActivity; as activity) {
     <section class="mt-8">

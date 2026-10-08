@@ -37,6 +37,13 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    title: 'Website',
+    items: [
+      { label: 'Plans & equipment', icon: 'sell', route: '/website-plans', permission: Permission.WEBSITE_VIEW },
+      { label: 'Hardware requests', icon: 'point_of_sale', route: '/hardware', permission: Permission.HARDWARE_VIEW },
+    ],
+  },
+  {
     title: 'Administration',
     items: [
       { label: 'Users & roles', icon: 'group', route: '/users', permission: Permission.USERS_VIEW },

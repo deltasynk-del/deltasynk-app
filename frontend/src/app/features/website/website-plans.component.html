@@ -1,0 +1,303 @@
+<header class="mb-5">
+  <h1 class="dp-page-title">Plans &amp; equipment</h1>
+  <p class="dp-page-sub">
+    The pricing cards and equipment shown on deltasynk.com. A saved change is live on the website straight away,
+    and the product apps charge the new price from then on.
+  </p>
+</header>
+
+<div class="dp-pill-tabs mb-4" role="tablist">
+  @for (s of services; track s.value) {
+    <button
+      type="button"
+      role="tab"
+      class="dp-pill-tab"
+      [class.dp-pill-tab--active]="service() === s.value"
+      [attr.aria-selected]="service() === s.value"
+      (click)="service.set(s.value)"
+    >
+      {{ s.label }}
+      <span class="dp-pill-tab__count">{{ countFor(s.value) }}</span>
+    </button>
+  }
+</div>
+
+@if (loadError()) {
+  <div class="dp-card dp-empty text-red-700">
+    {{ loadError() }}
+    <p class="mt-2 text-sm text-slate-600">
+      The portal reaches the website through Connected apps → DeltaSynk website → Connection.
+    </p>
+  </div>
+} @else if (loading() && allPlans().length === 0) {
+  <div class="dp-card dp-empty">Loading…</div>
+} @else {
+  <section [class.opacity-60]="loading()">
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <h2 class="text-sm font-bold text-slate-900">{{ serviceLabel() }} plan cards</h2>
+      @if (canManage()) {
+        <button type="button" class="btn-primary btn-sm" (click)="openPlan()"><mat-icon>add</mat-icon> Add plan</button>
+      }
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      @for (plan of plans(); track plan.id) {
+        <article class="dp-card flex flex-col p-4" [class.opacity-70]="plan.status !== 'ACTIVE'">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-slate-900">{{ plan.planName }}</h3>
+              <p class="font-mono text-xs text-slate-500">{{ plan.planCode || 'no code' }}</p>
+            </div>
+            <div class="flex flex-wrap justify-end gap-1">
+              @if (plan.isPopular) {
+                <span class="dp-badge dp-badge--blue">Most popular</span>
+              }
+              <span class="dp-badge" [class.dp-badge--green]="plan.status === 'ACTIVE'" [class.dp-badge--slate]="plan.status !== 'ACTIVE'">
+                {{ plan.status === 'ACTIVE' ? 'On the website' : 'Hidden' }}
+              </span>
+            </div>
+          </div>
+
+          <p class="mt-3 text-2xl font-extrabold tabular-nums text-slate-900">
+            @if (plan.amount === null) {
+              <span class="text-base font-semibold text-slate-600">Contact us</span>
+            } @else {
+              {{ plan.currency }} {{ plan.amount | number }}
+              <span class="text-sm font-medium text-slate-500">/ month</span>
+            }
+          </p>
+          @if (plan.description) {
+            <p class="mt-1 text-sm text-slate-600">{{ plan.description }}</p>
+          }
+          @if (plan.minStudents !== null || plan.maxStudents !== null) {
+            <p class="mt-1 text-xs text-slate-500">{{ plan.minStudents ?? 0 | number }} – {{ plan.maxStudents ?? 0 | number }} students</p>
+          }
+          <ul class="mt-3 flex-1 space-y-1 text-sm text-slate-700">
+            @for (feature of plan.features; track $index) {
+              <li class="flex gap-2"><mat-icon class="!h-4 !w-4 shrink-0 !text-base text-emerald-600">check</mat-icon>{{ feature }}</li>
+            } @empty {
+              <li class="text-slate-500">No features listed.</li>
+            }
+          </ul>
+
+          <div class="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+            <span class="text-xs text-slate-500">Position {{ plan.sortOrder }} · changed {{ plan.updatedAt | date: 'd MMM y' }}</span>
+            @if (canManage()) {
+              <span class="flex gap-2">
+                <button type="button" class="btn-secondary btn-sm" (click)="openPlan(plan)">Edit</button>
+                <button type="button" class="btn-danger btn-sm" (click)="askDelete('plan', plan.id, plan.planName)">Delete</button>
+              </span>
+            }
+          </div>
+        </article>
+      } @empty {
+        <p class="dp-card dp-empty md:col-span-2 xl:col-span-3">{{ serviceLabel() }} has no plan cards yet.</p>
+      }
+    </div>
+  </section>
+
+  <section class="mt-8" [class.opacity-60]="loading()">
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-sm font-bold text-slate-900">{{ serviceLabel() }} equipment</h2>
+        <p class="text-xs text-slate-500">Hardware customers can add when they choose a plan.</p>
+      </div>
+      @if (canManage()) {
+        <button type="button" class="btn-primary btn-sm" (click)="openAddon()"><mat-icon>add</mat-icon> Add item</button>
+      }
+    </div>
+
+    <div class="dp-table-wrap">
+      <table class="dp-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="text-right">Price</th>
+            <th>Free when prepaying</th>
+            <th>Customer owns it after</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (addon of addons(); track addon.id) {
+            <tr>
+              <td>
+                <p class="font-semibold text-slate-900">{{ addon.name }}</p>
+                <p class="font-mono text-xs text-slate-500">{{ addon.addonCode }}</p>
+              </td>
+              <td class="text-right tabular-nums">{{ addon.currency }} {{ addon.amount | number }}</td>
+              <td>{{ addon.freeFromMonths }} months or more</td>
+              <td>{{ addon.ownershipMonths }} months</td>
+              <td>
+                <span class="dp-badge" [class.dp-badge--green]="addon.status === 'ACTIVE'" [class.dp-badge--slate]="addon.status !== 'ACTIVE'">
+                  {{ addon.status === 'ACTIVE' ? 'On the website' : 'Hidden' }}
+                </span>
+              </td>
+              <td class="text-right">
+                @if (canManage()) {
+                  <span class="flex justify-end gap-2">
+                    <button type="button" class="btn-secondary btn-sm" (click)="openAddon(addon)">Edit</button>
+                    <button type="button" class="btn-danger btn-sm" (click)="askDelete('addon', addon.id, addon.name)">Delete</button>
+                  </span>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="dp-empty">{{ serviceLabel() }} has no equipment yet.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+@if (planForm(); as form) {
+  <dp-modal [title]="(form.id ? 'Edit plan' : 'Add plan') + ' — ' + serviceLabel()" [wide]="true" (closed)="closeDialogs()">
+    <form class="space-y-4" (ngSubmit)="savePlan()">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="dp-label" for="plan-name">Name</label>
+          <input id="plan-name" class="dp-input" name="planName" maxlength="60" [(ngModel)]="form.planName" />
+        </div>
+        <div>
+          <label class="dp-label" for="plan-price">Price per month (TZS)</label>
+          <input id="plan-price" class="dp-input" type="number" min="0" step="1" name="amount" [(ngModel)]="form.amount" placeholder="Empty = “Contact us”" />
+        </div>
+      </div>
+
+      <div>
+        <label class="dp-label" for="plan-code">Plan code</label>
+        <input id="plan-code" class="dp-input font-mono" name="planCode" maxlength="40" [(ngModel)]="form.planCode" autocomplete="off" spellcheck="false" />
+        <p class="mt-1 text-xs text-amber-800">
+          The product app recognises the plan by this code. Changing the code of a plan that is in use disconnects it
+          from the app — change the name or price instead.
+        </p>
+      </div>
+
+      <div>
+        <label class="dp-label" for="plan-description">Short description</label>
+        <textarea id="plan-description" class="dp-input" rows="2" name="description" maxlength="500" [(ngModel)]="form.description"></textarea>
+      </div>
+
+      <div>
+        <label class="dp-label" for="plan-features">Features — one per line</label>
+        <textarea id="plan-features" class="dp-input" rows="6" name="features" [(ngModel)]="form.features"></textarea>
+      </div>
+
+      @if (usesStudents()) {
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="dp-label" for="plan-min">Students from</label>
+            <input id="plan-min" class="dp-input" type="number" min="0" step="1" name="minStudents" [(ngModel)]="form.minStudents" />
+          </div>
+          <div>
+            <label class="dp-label" for="plan-max">Students up to</label>
+            <input id="plan-max" class="dp-input" type="number" min="0" step="1" name="maxStudents" [(ngModel)]="form.maxStudents" />
+          </div>
+        </div>
+      }
+
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label class="dp-label" for="plan-order">Position</label>
+          <input id="plan-order" class="dp-input" type="number" step="1" name="sortOrder" [(ngModel)]="form.sortOrder" />
+          <p class="mt-1 text-xs text-slate-500">Lowest number comes first.</p>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-slate-700 sm:mt-6">
+          <input type="checkbox" class="accent-brand-600" name="isPopular" [(ngModel)]="form.isPopular" />
+          Mark as most popular
+        </label>
+        <label class="flex items-center gap-2 text-sm text-slate-700 sm:mt-6">
+          <input type="checkbox" class="accent-brand-600" name="shown" [(ngModel)]="form.shown" />
+          Show on the website
+        </label>
+      </div>
+
+      @if (dialogError()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeDialogs()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save plan' }}</button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (addonForm(); as form) {
+  <dp-modal [title]="(form.id ? 'Edit item' : 'Add item') + ' — ' + serviceLabel()" [wide]="true" (closed)="closeDialogs()">
+    <form class="space-y-4" (ngSubmit)="saveAddon()">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="dp-label" for="addon-name">Name</label>
+          <input id="addon-name" class="dp-input" name="name" maxlength="80" [(ngModel)]="form.name" />
+        </div>
+        <div>
+          <label class="dp-label" for="addon-price">Price (TZS)</label>
+          <input id="addon-price" class="dp-input" type="number" min="0" step="1" name="amount" [(ngModel)]="form.amount" />
+        </div>
+      </div>
+      <div>
+        <label class="dp-label" for="addon-code">Item code</label>
+        <input id="addon-code" class="dp-input font-mono" name="addonCode" maxlength="40" [(ngModel)]="form.addonCode" placeholder="e.g. pos_printer" autocomplete="off" spellcheck="false" />
+        <p class="mt-1 text-xs text-slate-500">Lowercase letters, numbers and underscores. Requests already made keep the code they were made with.</p>
+      </div>
+      <div>
+        <label class="dp-label" for="addon-description">Description</label>
+        <textarea id="addon-description" class="dp-input" rows="2" name="description" maxlength="500" [(ngModel)]="form.description"></textarea>
+      </div>
+      <div>
+        <label class="dp-label" for="addon-image">Picture address</label>
+        <input id="addon-image" class="dp-input font-mono" name="imageUrl" maxlength="500" [(ngModel)]="form.imageUrl" placeholder="/assets/pos_printer.jpg or https://…" autocomplete="off" spellcheck="false" />
+        <p class="mt-1 text-xs text-slate-500">A picture already on the website (/assets/…) or a full web address. Pictures cannot be uploaded from here yet.</p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label class="dp-label" for="addon-free">Free from (months prepaid)</label>
+          <input id="addon-free" class="dp-input" type="number" min="1" step="1" name="freeFromMonths" [(ngModel)]="form.freeFromMonths" />
+        </div>
+        <div>
+          <label class="dp-label" for="addon-own">Customer owns it after (months)</label>
+          <input id="addon-own" class="dp-input" type="number" min="1" step="1" name="ownershipMonths" [(ngModel)]="form.ownershipMonths" />
+        </div>
+        <div>
+          <label class="dp-label" for="addon-order">Position</label>
+          <input id="addon-order" class="dp-input" type="number" step="1" name="sortOrder" [(ngModel)]="form.sortOrder" />
+        </div>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" class="accent-brand-600" name="shown" [(ngModel)]="form.shown" />
+        Show on the website
+      </label>
+
+      @if (dialogError()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+      }
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeDialogs()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save item' }}</button>
+      </div>
+    </form>
+  </dp-modal>
+}
+
+@if (deleting(); as target) {
+  <dp-modal [title]="'Delete ' + target.name + '?'" (closed)="closeDialogs()">
+    <p class="text-sm text-slate-700">
+      @if (target.kind === 'plan') {
+        The card disappears from the website and the product app can no longer offer this plan. Customers already on
+        it are not changed. To take it off the website for a while, edit it and untick “Show on the website” instead.
+      } @else {
+        The item disappears from the website. Requests customers already made for it are kept.
+      }
+    </p>
+    @if (dialogError()) {
+      <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ dialogError() }}</p>
+    }
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" class="btn-secondary" [disabled]="saving()" (click)="closeDialogs()">Cancel</button>
+      <button type="button" class="btn-danger" [disabled]="saving()" (click)="confirmDelete()">{{ saving() ? 'Deleting…' : 'Delete' }}</button>
+    </div>
+  </dp-modal>
+}

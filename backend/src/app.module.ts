@@ -16,6 +16,7 @@ import { SenderIdsModule } from './sender-ids/sender-ids.module';
 import { SmsModule } from './sms/sms.module';
 import { SmsCreditsModule } from './sms-credits/sms-credits.module';
 import { UsersModule } from './users/users.module';
+import { WebsiteModule } from './website/website.module';
 import { WarrantyCardsModule } from './warranty-cards/warranty-cards.module';
 import { ProductLabelsModule } from './product-labels/product-labels.module';
 
@@ -34,6 +35,7 @@ import { ProductLabelsModule } from './product-labels/product-labels.module';
     SenderIdsModule,
     PaymentsModule,
     SmsCreditsModule,
+    WebsiteModule,
     DashboardModule,
     WarrantyCardsModule,
     ProductLabelsModule,

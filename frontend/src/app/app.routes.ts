@@ -71,6 +71,22 @@ export const routes: Routes = [
         title: 'Product labels — DeltaSynk Portal',
       },
       {
+        path: 'website-plans',
+        canActivate: [permissionGuard],
+        data: { permission: Permission.WEBSITE_VIEW },
+        loadComponent: () =>
+          import('./features/website/website-plans.component').then((m) => m.WebsitePlansComponent),
+        title: 'Plans & equipment — DeltaSynk Portal',
+      },
+      {
+        path: 'hardware',
+        canActivate: [permissionGuard],
+        data: { permission: Permission.HARDWARE_VIEW },
+        loadComponent: () =>
+          import('./features/website/hardware.component').then((m) => m.HardwareComponent),
+        title: 'Hardware requests — DeltaSynk Portal',
+      },
+      {
         path: 'users',
         canActivate: [permissionGuard],
         data: { permission: Permission.USERS_VIEW },

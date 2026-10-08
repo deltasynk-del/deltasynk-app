@@ -1,10 +1,26 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { DashboardInsights, IncomeMonth } from '../../core/models/portal.models';
 import { AuthService } from '../../core/services/auth.service';
+import { PortalApiService } from '../../core/services/portal-api.service';
 import { QueueCountsService } from '../../core/services/queue-counts.service';
 import { appLabel, waitingFor } from '../../shared/labels';
+
+const SUBSCRIBER_STATUSES: { key: string; label: string }[] = [
+  { key: 'ACTIVE', label: 'Paying' },
+  { key: 'TRIAL', label: 'On trial' },
+  { key: 'PENDING_PAYMENT', label: 'Waiting to pay' },
+  { key: 'EXPIRED', label: 'Expired' },
+  { key: 'SUSPENDED', label: 'Suspended' },
+];
+
+const HARDWARE_STATUSES: { key: string; label: string }[] = [
+  { key: 'REQUESTED', label: 'To hand over' },
+  { key: 'ISSUED', label: 'Handed over' },
+  { key: 'RETURNED', label: 'Returned' },
+];
 
 interface QueueCard {
   title: string;
@@ -26,7 +42,17 @@ interface QueueCard {
 })
 export class DashboardComponent implements OnInit {
   private readonly auth = inject(AuthService);
+  private readonly api = inject(PortalApiService);
   readonly counts = inject(QueueCountsService);
+
+  readonly insights = signal<DashboardInsights | null>(null);
+  readonly insightsFailed = signal(false);
+  readonly appLabel = appLabel;
+  readonly subscriberStatuses = SUBSCRIBER_STATUSES;
+  readonly hardwareStatuses = HARDWARE_STATUSES;
+
+  /** Newest month first. */
+  readonly incomeMonths = computed(() => [...(this.insights()?.income?.months ?? [])].reverse());
 
   readonly firstName = computed(() => this.auth.user()?.fullName.split(' ')[0] ?? '');
   readonly summary = this.counts.summary;
@@ -78,6 +104,32 @@ export class DashboardComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.refresh();
+  }
+
+  refresh(): void {
     this.counts.refresh();
+    this.insightsFailed.set(false);
+    this.api.dashboardInsights().subscribe({
+      next: (insights) => this.insights.set(insights),
+      error: () => this.insightsFailed.set(true),
+    });
+  }
+
+  total(month: IncomeMonth): number {
+    return month.subscriptions + month.topUps;
+  }
+
+  /** "2026-10" → a date the template can format as "Oct 2026". */
+  monthDate(month: string): Date {
+    const [year, monthIndex] = month.split('-').map(Number);
+    return new Date(year, monthIndex - 1, 1);
+  }
+
+  /** "+12%" / "−8%" against last month; empty when there is nothing to compare with. */
+  change(now: number, before: number): string {
+    if (!before) return '';
+    const percent = Math.round(((now - before) / before) * 100);
+    return `${percent >= 0 ? '+' : '−'}${Math.abs(percent)}% on last month`;
   }
 }

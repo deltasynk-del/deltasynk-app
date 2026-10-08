@@ -41,12 +41,12 @@
           </div>
           @if (app.supportsCallback) {
             <div>
-              <dt class="text-xs font-semibold text-slate-500">Send decisions back (portal → app)</dt>
+              <dt class="text-xs font-semibold text-slate-500">Connection (portal → app)</dt>
               <dd class="mt-0.5">
                 @if (app.callbackBaseUrl && app.callbackKeySet) {
                   <span class="break-all font-mono text-xs text-slate-900">{{ app.callbackBaseUrl }}</span>
                 } @else {
-                  <span class="text-slate-500">Not set — {{ app.name }} learns of a decision when it next checks.</span>
+                  <span class="text-slate-500">Not set — the portal cannot reach {{ app.name }}.</span>
                 }
               </dd>
             </div>
@@ -154,13 +154,14 @@
 @if (editing(); as app) {
   <dp-modal [title]="'Connection to ' + app.name" (closed)="editing.set(null)">
     <p class="text-sm text-slate-600">
-      With this set, an approved or rejected sender ID is pushed to {{ app.name }} straight away instead of waiting for it to check.
+      Lets the portal reach {{ app.name }}: sender ID decisions are sent straight away, and staff tools that
+      work inside {{ app.name }} (adding SMS credits, editing website plans and equipment) need it.
     </p>
     <form class="mt-4 space-y-4" (ngSubmit)="saveCallback()">
       <div>
         <label class="dp-label" for="cb-url">{{ app.name }} API address</label>
         <input id="cb-url" class="dp-input font-mono" name="callbackBaseUrl" [(ngModel)]="callbackBaseUrl" placeholder="http://localhost:3020/api/v1" autocomplete="off" spellcheck="false" />
-        <p class="mt-1 text-xs text-slate-500">Leave empty to stop pushing decisions.</p>
+        <p class="mt-1 text-xs text-slate-500">Leave empty to disconnect the portal from {{ app.name }}.</p>
       </div>
       <div>
         <label class="dp-label" for="cb-key">{{ app.name }} platform key</label>

@@ -36,6 +36,13 @@ const SENDER_ID_CALLBACKS: Partial<
   [SourceApp.SYNKMART]: { keyHeader: 'x-platform-key', sendsNote: true },
 };
 
+/** The header each app expects its own staff/platform key in (Connected apps → Connection). */
+const PLATFORM_KEY_HEADERS: Record<SourceApp, string> = {
+  [SourceApp.QUALITYSCHOOL]: 'x-platform-api-key',
+  [SourceApp.SYNKMART]: 'x-platform-key',
+  [SourceApp.DELTASYNK_WEBSITE]: 'x-internal-api-key',
+};
+
 const CALLBACK_TIMEOUT_MS = 8000;
 
 @Injectable()
@@ -181,13 +188,13 @@ export class AppsService {
    */
   async callPlatform<T>(
     code: SourceApp,
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<T> {
-    const spec = SENDER_ID_CALLBACKS[code];
+    const keyHeader = PLATFORM_KEY_HEADERS[code];
     const app = await this.findOrThrow(code);
-    if (!spec || !app.callbackBaseUrl || !app.callbackKeyEnc) {
+    if (!app.callbackBaseUrl || !app.callbackKeyEnc) {
       throw new BadRequestException(
         `Set ${app.name}'s API address and platform key under Connected apps → Connection first.`,
       );
@@ -199,7 +206,7 @@ export class AppsService {
         method,
         headers: {
           'Content-Type': 'application/json',
-          [spec.keyHeader]: decryptSecret(app.callbackKeyEnc),
+          [keyHeader]: decryptSecret(app.callbackKeyEnc),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         signal: AbortSignal.timeout(CALLBACK_TIMEOUT_MS),
@@ -215,6 +222,10 @@ export class AppsService {
       | null;
     if (!response.ok || payload === null) {
       const detail = Array.isArray(payload?.message) ? payload.message.join(', ') : (payload?.message ?? '');
+      // The app understood the request and refused it (bad value, duplicate, not found): its reason is the message.
+      if (detail && [400, 404, 409].includes(response.status)) {
+        throw new BadRequestException(detail.slice(0, 500));
+      }
       throw new BadGatewayException(
         `${app.name} answered ${response.status}${detail ? `: ${detail}` : ''}`.slice(0, 500),
       );
@@ -237,7 +248,7 @@ export class AppsService {
       inboundKeySetAt: app.inboundKeySetAt?.toISOString() ?? null,
       callbackBaseUrl: app.callbackBaseUrl,
       callbackKeySet: Boolean(app.callbackKeyEnc),
-      supportsCallback: Boolean(SENDER_ID_CALLBACKS[app.code]),
+      supportsCallback: Boolean(PLATFORM_KEY_HEADERS[app.code]),
       lastSeenAt: app.lastSeenAt?.toISOString() ?? null,
     };
   }

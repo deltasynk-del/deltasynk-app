@@ -20,6 +20,17 @@ export const Permission = {
   /** Give a shop SMS credits without a payment. Owners only, unless added to a role below. */
   TOPUPS_GRANT: 'topups.grant',
 
+  /** Money received: totals by month, product and plan. */
+  INCOME_VIEW: 'income.view',
+
+  /** Pricing cards and equipment shown on deltasynk.com. */
+  WEBSITE_VIEW: 'website.view',
+  WEBSITE_MANAGE: 'website.manage',
+
+  /** Equipment customers asked for at sign-up. */
+  HARDWARE_VIEW: 'hardware.view',
+  HARDWARE_MANAGE: 'hardware.manage',
+
   USERS_VIEW: 'users.view',
   USERS_MANAGE: 'users.manage',
 
@@ -52,6 +63,10 @@ export const ROLE_PERMISSIONS: Record<PortalRole, readonly Permission[]> = {
     Permission.SUBSCRIPTIONS_VERIFY,
     Permission.TOPUPS_VIEW,
     Permission.TOPUPS_VERIFY,
+    Permission.INCOME_VIEW,
+    Permission.WEBSITE_VIEW,
+    Permission.HARDWARE_VIEW,
+    Permission.HARDWARE_MANAGE,
     Permission.USERS_VIEW,
     Permission.APPS_VIEW,
     Permission.AUDIT_VIEW,
@@ -67,6 +82,7 @@ export const ROLE_PERMISSIONS: Record<PortalRole, readonly Permission[]> = {
     Permission.SENDER_IDS_VIEW,
     Permission.SUBSCRIPTIONS_VIEW,
     Permission.TOPUPS_VIEW,
+    Permission.HARDWARE_VIEW,
     Permission.WARRANTY_CARDS_VIEW,
     Permission.PRODUCT_LABELS_VIEW,
   ],

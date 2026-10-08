@@ -61,6 +61,31 @@
   </aside>
 
   <main class="shell__content">
+    <header class="shell__topbar">
+      <h2 class="shell__topbar-title">{{ pageTitle() }}</h2>
+      <div class="shell__topbar-actions">
+        @if (waiting() > 0) {
+          <a routerLink="/dashboard" class="shell__topbar-waiting" [attr.aria-label]="waiting() + ' requests waiting for a decision'">
+            <mat-icon>notifications_active</mat-icon>
+            {{ waiting() }} waiting
+          </a>
+        }
+        @if (user(); as u) {
+          <a routerLink="/account" class="shell__topbar-user">
+            <span class="shell__avatar shell__avatar--sm" aria-hidden="true">{{ u.fullName.charAt(0).toUpperCase() }}</span>
+            <span class="min-w-0">
+              <span class="shell__user-name block">{{ u.fullName }}</span>
+              <span class="shell__user-role block">{{ roleLabel() }}</span>
+            </span>
+          </a>
+        }
+        <button type="button" class="shell__topbar-signout" (click)="signOut()">
+          <mat-icon>logout</mat-icon>
+          Sign out
+        </button>
+      </div>
+    </header>
+
     @if (user(); as u) {
       @if (!u.twoFactorEnabled) {
         <div class="shell__notice" role="status">
@@ -73,5 +98,14 @@
     <div class="shell__page">
       <router-outlet />
     </div>
+
+    <footer class="shell__pagefoot">
+      <span>© {{ currentYear }} DeltaSynk Technologies LTD · Operations Portal</span>
+      <nav class="shell__pagefoot-links" aria-label="Footer">
+        <a href="https://deltasynk.com" target="_blank" rel="noopener">deltasynk.com</a>
+        <a href="https://synkmart.deltasynk.com" target="_blank" rel="noopener">SynkMart</a>
+        <a routerLink="/account">My account</a>
+      </nav>
+    </footer>
   </main>
 </div>

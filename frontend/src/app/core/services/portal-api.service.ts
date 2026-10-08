@@ -6,12 +6,16 @@ import {
   AuditEntry,
   ConnectedApp,
   CreditShop,
+  DashboardInsights,
+  HardwareItem,
   DashboardSummary,
   Page,
   PaymentRequest,
   PortalUser,
   RoleDefinition,
   SenderIdRequest,
+  WebsiteAddon,
+  WebsitePlan,
 } from '../models/portal.models';
 
 export interface ListQuery {
@@ -42,6 +46,51 @@ export class PortalApiService {
 
   dashboard(): Observable<DashboardSummary> {
     return this.http.get<DashboardSummary>(`${this.base}/dashboard`);
+  }
+
+  dashboardInsights(): Observable<DashboardInsights> {
+    return this.http.get<DashboardInsights>(`${this.base}/dashboard/insights`);
+  }
+
+  // Website: pricing cards and equipment
+  websitePlans(): Observable<WebsitePlan[]> {
+    return this.http.get<WebsitePlan[]>(`${this.base}/website/plans`);
+  }
+
+  saveWebsitePlan(id: string | null, body: Partial<WebsitePlan>): Observable<WebsitePlan> {
+    return id
+      ? this.http.patch<WebsitePlan>(`${this.base}/website/plans/${id}`, body)
+      : this.http.post<WebsitePlan>(`${this.base}/website/plans`, body);
+  }
+
+  deleteWebsitePlan(id: string): Observable<WebsitePlan> {
+    return this.http.delete<WebsitePlan>(`${this.base}/website/plans/${id}`);
+  }
+
+  websiteAddons(): Observable<WebsiteAddon[]> {
+    return this.http.get<WebsiteAddon[]>(`${this.base}/website/addons`);
+  }
+
+  saveWebsiteAddon(id: string | null, body: Partial<WebsiteAddon>): Observable<WebsiteAddon> {
+    return id
+      ? this.http.patch<WebsiteAddon>(`${this.base}/website/addons/${id}`, body)
+      : this.http.post<WebsiteAddon>(`${this.base}/website/addons`, body);
+  }
+
+  deleteWebsiteAddon(id: string): Observable<WebsiteAddon> {
+    return this.http.delete<WebsiteAddon>(`${this.base}/website/addons/${id}`);
+  }
+
+  // Equipment customers asked for at sign-up
+  hardware(query: { status?: string; service?: string }): Observable<HardwareItem[]> {
+    return this.http.get<HardwareItem[]>(`${this.base}/website/hardware`, { params: this.params(query) });
+  }
+
+  updateHardware(
+    id: string,
+    body: Partial<{ status: string; serialNumber: string; shopSlug: string; notes: string }>,
+  ): Observable<HardwareItem> {
+    return this.http.patch<HardwareItem>(`${this.base}/website/hardware/${id}`, body);
   }
 
   // Sender IDs

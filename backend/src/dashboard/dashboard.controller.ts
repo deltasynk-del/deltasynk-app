@@ -14,4 +14,11 @@ export class DashboardController {
   summary(@CurrentUser() user: AuthenticatedUser) {
     return this.dashboard.summary(user);
   }
+
+  /** Income, subscribers and website figures: heavier than the summary, so only the dashboard page asks. */
+  @Get('insights')
+  @RequirePermissions(Permission.DASHBOARD_VIEW)
+  insights(@CurrentUser() user: AuthenticatedUser) {
+    return this.dashboard.insights(user);
+  }
 }

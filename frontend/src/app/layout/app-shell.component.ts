@@ -32,14 +32,34 @@ export class AppShellComponent implements OnInit, OnDestroy {
     })).filter((section) => section.items.length > 0);
   });
 
+  /** The page being shown, for the top bar. */
+  readonly pageTitle = signal('');
+  /** Everything waiting for a decision, across the queues this user can see. */
+  readonly waiting = computed(
+    () => this.counts.count('senderIds') + this.counts.count('subscriptions') + this.counts.count('topUps'),
+  );
+  readonly currentYear = new Date().getFullYear();
+
   private navSub?: Subscription;
 
   ngOnInit(): void {
     document.body.classList.add('portal-shell-active');
     this.counts.refresh();
+    this.updatePageTitle();
     this.navSub = this.router.events
       .pipe(filter((e) => e instanceof NavigationEnd))
-      .subscribe(() => this.menuOpen.set(false));
+      .subscribe(() => {
+        this.menuOpen.set(false);
+        this.updatePageTitle();
+      });
+  }
+
+  private updatePageTitle(): void {
+    const path = this.router.url.split(/[?#]/)[0];
+    const item = NAV_SECTIONS.flatMap((section) => section.items).find(
+      (i) => path === i.route || path.startsWith(`${i.route}/`),
+    );
+    this.pageTitle.set(item?.label ?? (path.startsWith('/account') ? 'My account & security' : ''));
   }
 
   ngOnDestroy(): void {
