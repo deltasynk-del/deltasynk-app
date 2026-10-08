@@ -59,11 +59,12 @@ deploying it:
   characters in the password.
 5. Configure working SMTP credentials. Password reset and email verification
   require SMTP; production responses never expose development links or codes.
-6. Deploy the Compose application and create the first owner:
-
-  ```bash
-  docker compose exec backend npm run db:seed
-  ```
+6. Deploy the Compose application. On startup the backend creates the first
+  owner from `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD` if no owner exists yet;
+  the backend logs say `Owner created`, `An owner already exists`, or
+  `SEED FAILED`. Changing `SEED_OWNER_PASSWORD` later does not change an
+  existing owner's password; use `npm run user:reset-access -- <email>` in the
+  backend container for that.
 
 The app is served at `https://portal.deltasynk.com` and its API at
 `https://portal.deltasynk.com/api/v1`. The DNS record must resolve to the

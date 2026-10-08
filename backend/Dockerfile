@@ -13,4 +13,5 @@ EXPOSE 3030
 
 USER node
 
-CMD ["sh", "-c", "npx prisma migrate deploy && exec node dist/main"]
+# The seed is idempotent: it only creates the first owner when none exists.
+CMD ["sh", "-c", "npx prisma migrate deploy && (npx prisma db seed || echo 'SEED FAILED: no owner was created - check SEED_OWNER_EMAIL and SEED_OWNER_PASSWORD.') && exec node dist/main"]
