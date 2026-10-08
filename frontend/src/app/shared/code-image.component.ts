@@ -54,7 +54,9 @@ export class QrImageComponent {
   }
 
   private async render(host: HTMLElement, value: string): Promise<void> {
-    const QRCode = await import('qrcode');
+    // qrcode is CommonJS: once bundled, its functions are only on the default export.
+    const module = await import('qrcode');
+    const QRCode = module.default ?? module;
     host.innerHTML = await QRCode.toString(value, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' });
   }
 }
